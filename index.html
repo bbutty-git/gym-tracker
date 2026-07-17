@@ -108,6 +108,14 @@
     font-size: 11.5px; font-weight: 600; color: var(--amber); cursor: pointer; padding: 2px 0;
   }
   .discard-link { text-align: center; font-size: 11px; font-weight: 600; color: var(--dimmer); cursor: pointer; }
+  .mini-del { background: none; border: none; color: var(--dimmer); cursor: pointer; font-size: 14px; line-height: 1; padding: 4px 6px; border-radius: 8px; flex-shrink: 0; }
+  .mini-del:active { background: rgba(229,83,75,.18); }
+  .confirm-backdrop { align-items: center !important; padding: 20px; }
+  .confirm-card {
+    background: var(--panel); border: 1px solid var(--border2); border-radius: 18px;
+    width: 100%; max-width: 360px; padding: 20px;
+  }
+  .confirm-card #confirm-msg { font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--text); }
   .last-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
   .last-card .lh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .last-card .lh .d { font-size: 14px; font-weight: 700; }
@@ -379,7 +387,6 @@
 
     <button class="start-btn" onclick="startWorkout()">
       <div class="t" id="start-title">Start workout</div>
-      <div class="s" id="start-sub">Exercise 1 · empty log</div>
     </button>
     <div class="discard-link" id="home-discard" onclick="discardActive()" style="display:none;">Discard in-progress workout</div>
 
@@ -601,6 +608,17 @@
   </div>
 </div>
 
+<!-- ============ CONFIRM DIALOG ============ -->
+<div class="modal-backdrop confirm-backdrop" id="confirm-modal" onclick="if(event.target===this)closeConfirm()">
+  <div class="confirm-card">
+    <div id="confirm-msg"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn-outline" style="flex:1;" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-primary" style="flex:1;background:var(--red);box-shadow:none;" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -684,6 +702,16 @@ function toast(msg) {
   t._h = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+// In-app confirm dialog (reliable on mobile/PWA, unlike native confirm()).
+let confirmCb = null;
+function uiConfirm(msg, okLabel, onOk) {
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-ok').textContent = okLabel || 'Confirm';
+  confirmCb = onOk;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+function closeConfirm() { document.getElementById('confirm-modal').classList.remove('open'); confirmCb = null; }
+
 function syncUnitToggles() {
   const u = unit();
   document.querySelectorAll('.unit-toggle').forEach(tg => {
@@ -713,14 +741,10 @@ function renderHome() {
   document.getElementById('home-date-input').value = active ? active.dateISO : homeDateISO;
 
   if (active) {
-    const done = (active.exercises || []).length;
-    const cur = active.current && active.current.sets.length ? 1 : 0;
     document.getElementById('start-title').textContent = 'Resume workout';
-    document.getElementById('start-sub').textContent = 'Exercise ' + (done + 1) + ' · ' + (done + cur) + ' logged so far';
     document.getElementById('home-discard').style.display = 'block';
   } else {
     document.getElementById('start-title').textContent = 'Start workout';
-    document.getElementById('start-sub').textContent = 'Exercise 1 · empty log';
     document.getElementById('home-discard').style.display = 'none';
   }
 
@@ -734,7 +758,10 @@ function renderHome() {
     const shown = names.slice(0, 2);
     const extra = names.length - shown.length;
     lastEl.innerHTML = `<div class="last-card">
-      <div class="lh"><div class="d">${escapeHtml(fmtMed(w))}</div><div class="m">${w.exercises.length} exercise${w.exercises.length !== 1 ? 's' : ''} · ${sets} sets</div></div>
+      <div class="lh"><div class="d">${escapeHtml(fmtMed(w))}</div>
+        <div style="display:flex;align-items:center;gap:6px;"><div class="m">${w.exercises.length} exercise${w.exercises.length !== 1 ? 's' : ''} · ${sets} sets</div>
+        <button class="mini-del" onclick="askDeleteWorkout(0)" title="Delete workout">🗑</button></div>
+      </div>
       <div class="last-chips">
         ${shown.map(n => `<div class="last-chip">${escapeHtml(n)}</div>`).join('')}
         ${extra > 0 ? `<div class="last-chip">+${extra}</div>` : ''}
@@ -800,14 +827,14 @@ function newCurrent() { return { name: '', notes: '', sets: [], pending: newPend
 function newPending() { return { type: 'working', max: false, extra: null }; }
 
 function discardActive() {
-  if (confirm('Discard the in-progress workout? Logged sets will be lost.')) {
+  uiConfirm('Discard the in-progress workout? Logged sets will be lost.', 'Discard', () => {
     store.active = null; workout = null; renderHome();
-  }
+  });
 }
 function confirmAbandon() {
-  if (confirm('Discard this workout? Logged sets will be lost.')) {
+  uiConfirm('Discard this workout? Logged sets will be lost.', 'Discard', () => {
     workout = null; store.active = null; goHome();
-  }
+  });
 }
 
 function openLogScreen(focusName) {
@@ -885,10 +912,11 @@ function logSet() {
 }
 
 function deleteSet(i) {
-  if (!confirm('Remove set ' + (i + 1) + '?')) return;
-  workout.current.sets.splice(i, 1);
-  store.active = workout;
-  renderSetRows();
+  uiConfirm('Remove set ' + (i + 1) + '?', 'Remove', () => {
+    workout.current.sets.splice(i, 1);
+    store.active = workout;
+    renderSetRows();
+  });
 }
 
 function captureCurrent() {
@@ -1197,12 +1225,15 @@ function renderHistory() {
     return;
   }
   const u = unit();
-  el.innerHTML = hist.map(w => {
+  el.innerHTML = hist.map((w, wi) => {
     const sets = w.exercises.reduce((n, ex) => n + ex.sets.length, 0);
     return `<div class="hist-card">
       <div class="hd">
         <div class="d">${escapeHtml(fmtMed(w))}</div>
-        <span class="badge ${w.synced ? 'synced' : 'local'}">${w.synced ? '✓ Synced' : 'On device'}</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="badge ${w.synced ? 'synced' : 'local'}">${w.synced ? '✓ Synced' : 'On device'}</span>
+          <button class="mini-del" onclick="askDeleteWorkout(${wi})" title="Delete workout">🗑</button>
+        </div>
       </div>
       <div class="hd" style="margin-top:2px;"><div class="m">${w.exercises.length} exercise${w.exercises.length !== 1 ? 's' : ''} · ${sets} sets${w.duration ? ' · ' + w.duration : ''}</div></div>
       ${w.exercises.map(ex => `
@@ -1396,25 +1427,52 @@ async function cloudSync(showToast) {
   }
 }
 
+function workoutKey(w) {
+  return String((w && w.startedAt) || ((w && w.dateISO) + '|' + (((w && w.exercises) || []).map(e => e.name).join(','))));
+}
+
 function mergeRemote(remote) {
   if (!remote || typeof remote !== 'object') return;
   const local = store.history || [];
   const remoteHist = Array.isArray(remote.history) ? remote.history : [];
+  const s = store.settings;
+  // tombstones: any workout deleted on any device stays deleted after a merge
+  const del = new Set([...(s.deletedWorkouts || []), ...(Array.isArray(remote.deleted) ? remote.deleted : [])]);
   const seen = {}; const merged = [];
   [...remoteHist, ...local].forEach(w => {
     if (!w) return;
-    const k = String(w.startedAt || (w.dateISO + '|' + ((w.exercises || []).map(e => e.name).join(','))));
-    if (seen[k]) return;
+    const k = workoutKey(w);
+    if (del.has(k) || seen[k]) return;
     seen[k] = 1; merged.push(w);
   });
   merged.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
   store.history = merged.slice(0, 200);
+  s.deletedWorkouts = [...del].slice(-500);
   const p = remote.profile || {};
-  const s = store.settings;
   ['name', 'height', 'bodyweight', 'unit'].forEach(k => { if (p[k] !== undefined && p[k] !== '' && p[k] !== null) s[k] = p[k]; });
   if (Array.isArray(p.maxLifts) && p.maxLifts.length) s.maxLifts = p.maxLifts;
   if (Array.isArray(p.bodyweightLog) && p.bodyweightLog.length >= (s.bodyweightLog || []).length) s.bodyweightLog = p.bodyweightLog;
   store.settings = s;
+}
+
+function askDeleteWorkout(idx) {
+  const w = store.history[idx];
+  if (!w) return;
+  uiConfirm('Delete this workout — ' + fmtMed(w) + '? This can’t be undone.', 'Delete', () => {
+    const hist = store.history;
+    const victim = hist[idx];
+    if (!victim) return;
+    const key = workoutKey(victim);
+    hist.splice(idx, 1);
+    store.history = hist;
+    const s = store.settings;
+    s.deletedWorkouts = s.deletedWorkouts || [];
+    if (!s.deletedWorkouts.includes(key)) s.deletedWorkouts.push(key);
+    store.settings = s;
+    syncPush();
+    refreshActiveScreen();
+    toast('Workout deleted');
+  });
 }
 
 function syncPush() {
@@ -1427,6 +1485,7 @@ async function pushState() {
   const s = store.settings;
   const payload = {
     history: store.history,
+    deleted: s.deletedWorkouts || [],
     profile: { name: s.name || '', height: s.height || '', bodyweight: s.bodyweight || '', unit: s.unit || 'lbs', maxLifts: s.maxLifts || [], bodyweightLog: s.bodyweightLog || [] }
   };
   try {
@@ -1592,6 +1651,12 @@ function escapeHtml(s) {
 function escapeAttr(s) { return escapeHtml(s); }
 
 /* ================= wire up ================= */
+document.getElementById('confirm-ok').addEventListener('click', () => {
+  const cb = confirmCb;
+  closeConfirm();
+  if (cb) cb();
+});
+
 const exNameInput = document.getElementById('ex-name');
 exNameInput.addEventListener('input', e => {
   renderAutocomplete(e.target.value);
