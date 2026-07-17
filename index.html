@@ -980,9 +980,16 @@ function renderExerciseCard() {
   renderSetRows();
 }
 
+// one combined selector per set: Warm up set / Working set / Max Set
+function kindOf(s) { return s.max ? 'max' : (s.type === 'warmup' ? 'warmup' : 'working'); }
+const KIND_UI = {
+  warmup:  { cls: 'type-warmup', label: 'Warm up set', flame: false },
+  working: { cls: 'type-working', label: 'Working set', flame: false },
+  max:     { cls: 'max-on', label: 'Max Set', flame: true }
+};
 function chipButtons(s, ref) {
-  return `<button class="chip type-${s.type}" onclick="openChipMenu(event, ${ref}, 'type')">${SET_TYPES[s.type]} ▾</button>
-    <button class="chip ${s.max ? 'max-on' : ''}" onclick="openChipMenu(event, ${ref}, 'max')">${s.max ? FLAME + ' ' : ''}Max Set ▾</button>
+  const k = KIND_UI[kindOf(s)];
+  return `<button class="chip ${k.cls}" onclick="openChipMenu(event, ${ref}, 'kind')">${k.flame ? FLAME + ' ' : ''}${k.label} ▾</button>
     <button class="chip ${s.extra ? 'extra-on' : ''}" onclick="openChipMenu(event, ${ref}, 'extra')">${s.extra ? EXTRAS[s.extra] : 'Finisher'} ▾</button>`;
 }
 
@@ -1095,12 +1102,12 @@ function openChipMenu(e, i, kind) {
   closeChipMenu();
   const s = chipTarget(i);
   let options;
-  if (kind === 'type') {
-    options = Object.keys(SET_TYPES).map(k => ({ v: k, label: SET_TYPES[k], on: s.type === k }));
-  } else if (kind === 'max') {
+  if (kind === 'kind') {
+    const cur = kindOf(s);
     options = [
-      { v: true, label: 'Max Set', flame: true, on: s.max },
-      { v: false, label: 'Regular set', on: !s.max }
+      { v: 'warmup', label: 'Warm up set', on: cur === 'warmup' },
+      { v: 'working', label: 'Working set', on: cur === 'working' },
+      { v: 'max', label: 'Max Set', flame: true, on: cur === 'max' }
     ];
   } else {
     options = [
@@ -1131,11 +1138,13 @@ function openChipMenu(e, i, kind) {
 
 function applyChip(i, kind, v) {
   const s = chipTarget(i);
-  if (kind === 'type') {
-    s.type = v;
-  } else if (kind === 'max') {
-    if (i !== 'pending') workout.current.sets.forEach(x => x.max = false);
-    s.max = (v === true);
+  if (kind === 'kind') {
+    if (v === 'max') {
+      if (i !== 'pending') workout.current.sets.forEach(x => x.max = false); // one Max Set per exercise
+      s.type = 'working'; s.max = true;
+    } else {
+      s.type = v; s.max = false;
+    }
   } else {
     s.extra = v;
   }
