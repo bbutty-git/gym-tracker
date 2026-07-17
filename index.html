@@ -1567,19 +1567,21 @@ function sbInit() {
   } catch (e) { console.warn('sbInit failed', e); sb = null; sbCreds = ''; }
 }
 
-async function onSignedIn() {
+function onSignedIn() { sbPulledFor = sbUser ? sbUser.id : null; cloudSync(true); }
+
+// Full, safe sync: pull remote -> merge (union, non-destructive) -> push the merged result.
+async function cloudSync(showToast) {
   if (!sb || !sbUser) return;
-  sbPulledFor = sbUser.id;
   try {
     const { data, error } = await sb.from('gym_state').select('data').eq('user_id', sbUser.id).maybeSingle();
     if (error) throw error;
     mergeRemote(data ? data.data : null);
     await pushState();
     refreshActiveScreen();
-    toast('Cloud synced ✓');
+    if (showToast) toast('Cloud synced ✓');
   } catch (e) {
-    console.warn('cloud pull failed', e);
-    toast('Sync issue: ' + (e.message || e));
+    console.warn('cloud sync failed', e);
+    if (showToast) toast('Sync issue: ' + (e.message || e));
   }
 }
 
@@ -1607,7 +1609,7 @@ function mergeRemote(remote) {
 function syncPush() {
   if (!sb || !sbUser) return;
   clearTimeout(sbPushTimer);
-  sbPushTimer = setTimeout(pushState, 900);
+  sbPushTimer = setTimeout(() => cloudSync(false), 900);
 }
 async function pushState() {
   if (!sb || !sbUser) return;
@@ -1623,7 +1625,7 @@ async function pushState() {
     updateCloudUI();
   } catch (e) { console.warn('cloud push failed', e); }
 }
-function manualSync() { pushState().then(() => toast('Synced ✓')); }
+function manualSync() { cloudSync(true); }
 
 async function cloudSignIn() {
   const url = document.getElementById('cfg-sb-url').value.trim().replace(/\/+$/, '');
