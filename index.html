@@ -1649,6 +1649,32 @@ async function cloudSignOut() {
   updateCloudUI(); toast('Signed out');
 }
 
+// Bundle the (public-safe) URL + anon key into a link so a new device can auto-fill them.
+function copyDeviceLink() {
+  const s = store.settings;
+  const url = ((document.getElementById('cfg-sb-url') || {}).value || s.sbUrl || '').trim().replace(/\/+$/, '');
+  const key = ((document.getElementById('cfg-sb-key') || {}).value || s.sbKey || '').trim();
+  if (!url || !key) { toast('Add your URL + key first'); return; }
+  const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ u: url, k: key }))));
+  const link = location.origin + location.pathname + '#cfg=' + payload;
+  navigator.clipboard.writeText(link)
+    .then(() => toast('Device link copied — open it on your other device'))
+    .catch(() => toast('Copy failed'));
+}
+// On load: if opened via a device link, pull the creds out of the hash and save them.
+function applyCfgFromHash() {
+  const m = (location.hash || '').match(/[#&]cfg=([^&]+)/);
+  if (!m) return;
+  try {
+    const obj = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    if (obj && obj.u && obj.k) {
+      const s = store.settings; s.sbUrl = obj.u; s.sbKey = obj.k; store.settings = s;
+      history.replaceState(null, '', location.pathname + location.search);
+      setTimeout(() => toast('Cloud connected — now sign in ✉️'), 300);
+    }
+  } catch (e) { console.warn('bad cfg link', e); }
+}
+
 function updateCloudUI() {
   const statusEl = document.getElementById('cloud-status');
   const authEl = document.getElementById('cloud-auth');
@@ -1662,14 +1688,15 @@ function updateCloudUI() {
   const keyField = (document.getElementById('cfg-sb-key').value || '').trim();
   const s = store.settings;
   const haveCreds = (urlField && keyField) || (s.sbUrl && s.sbKey);
+  const deviceLink = `<div class="maxlift-hint" style="padding:9px 0 0;text-align:center;"><a onclick="copyDeviceLink()" style="color:var(--pink);cursor:pointer;font-weight:700;">🔗 Copy device link →</a><br>open it on another device to auto-fill these keys</div>`;
   if (sbUser) {
     statusEl.className = 'status on'; statusEl.innerHTML = '<span class="dot"></span> Signed in';
     authEl.innerHTML = `<div class="maxlift-hint" style="padding:0 0 8px;">Signed in as <b>${escapeHtml(sbUser.email || '')}</b>${cloudLastSync ? ' · ' + escapeHtml(cloudLastSync) : ''}</div>
-      <div style="display:flex;gap:8px;"><button class="btn-outline" style="flex:1;" onclick="manualSync()">Sync now</button><button class="btn-outline" style="flex:1;" onclick="cloudSignOut()">Sign out</button></div>`;
+      <div style="display:flex;gap:8px;"><button class="btn-outline" style="flex:1;" onclick="manualSync()">Sync now</button><button class="btn-outline" style="flex:1;" onclick="cloudSignOut()">Sign out</button></div>${deviceLink}`;
   } else if (haveCreds) {
     statusEl.className = 'status off'; statusEl.textContent = 'Sign in';
     authEl.innerHTML = `<input class="url-input" id="cloud-email" type="email" placeholder="you@email.com" style="margin:0 0 8px;">
-      <button class="btn-outline" onclick="cloudSignIn()">Email me a sign-in link</button>`;
+      <button class="btn-outline" onclick="cloudSignIn()">Email me a sign-in link</button>${deviceLink}`;
   } else {
     statusEl.className = 'status off'; statusEl.textContent = 'Not set up'; authEl.innerHTML = '';
   }
@@ -1778,6 +1805,7 @@ document.getElementById('ex-notes').addEventListener('input', e => {
   if (workout && workout.current) { workout.current.notes = e.target.value; store.active = workout; }
 });
 
+applyCfgFromHash();
 renderHome();
 // Supabase client loads deferred; init once it's available (also processes magic-link redirects)
 window.addEventListener('load', () => { try { sbInit(); } catch (e) { console.warn(e); } });
