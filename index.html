@@ -8,6 +8,7 @@
 <title>Gym To Google Sheets Formatter Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #0B0B0D;
@@ -490,6 +491,26 @@
     <div class="settings-body">
 
       <div class="set-group">
+        <div class="gh">
+          <div class="section-label">Cloud sync</div>
+          <button class="help-chip" onclick="openCloudHelp()">? Set up</button>
+        </div>
+        <div class="card-list">
+          <div class="sync-row">
+            <div class="sh">
+              <div class="ic" style="background:rgba(247,37,133,.12)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F72585" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"></path></svg></div>
+              <div class="nm">Supabase database</div>
+              <div class="status" id="cloud-status"></div>
+            </div>
+            <input class="url-input" id="cfg-sb-url" placeholder="Project URL — https://xxxx.supabase.co" oninput="updateCloudUI()" style="margin-top:9px;">
+            <input class="url-input" id="cfg-sb-key" placeholder="Anon public key" oninput="updateCloudUI()" style="margin-top:8px;">
+            <div id="cloud-auth" style="margin-top:10px;"></div>
+          </div>
+        </div>
+        <div class="maxlift-hint" style="padding:0 2px;">Your workouts live here and sync to every device you sign in on. No Google, nothing that can get blocked — tap “Set up” for the one-time walkthrough.</div>
+      </div>
+
+      <div class="set-group">
         <div class="section-label">Basic details</div>
         <div class="card-list">
           <div class="row">
@@ -550,7 +571,29 @@
             <input class="url-input" id="cfg-script" placeholder="https://script.google.com/macros/s/…/exec" oninput="updateSyncStatus()">
           </div>
         </div>
-        <div class="maxlift-hint" style="padding:0 2px;">The bridge is a tiny script in your own Google account — it's what actually writes to the Doc and Sheet. Tap “Set up” for the 2-minute walkthrough.</div>
+        <div class="maxlift-hint" style="padding:0 2px;">The bridge is a tiny script in your own Google account — it's what actually writes to the Doc and Sheet. Tap “Set up” for the 2-minute walkthrough. (Blocked by your Google account? Use <b>Export</b> below instead — no authorization needed.)</div>
+      </div>
+
+      <div class="set-group">
+        <div class="section-label">Export data</div>
+        <div class="card-list">
+          <div class="sync-row">
+            <div class="sh">
+              <div class="ic" style="background:rgba(43,217,169,.12)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2BD9A9" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18"></path></svg></div>
+              <div class="nm">Spreadsheet (CSV)</div>
+              <button class="help-chip" onclick="exportCSV()">Download</button>
+            </div>
+            <div class="maxlift-hint" style="padding:6px 0 0;">One row per set. Open in Excel, or in Google Sheets via File → Import.</div>
+          </div>
+          <div class="sync-row">
+            <div class="sh">
+              <div class="ic" style="background:rgba(76,201,240,.12)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4CC9F0" stroke-width="2"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg></div>
+              <div class="nm">Formatted log (for Docs)</div>
+              <button class="help-chip" onclick="exportDoc()">Download</button>
+            </div>
+            <div class="maxlift-hint" style="padding:6px 0 0;">A styled .doc — open it in Google Docs or Word.</div>
+          </div>
+        </div>
       </div>
 
       <button class="btn-primary" onclick="saveSettings()">Save settings</button>
@@ -591,6 +634,25 @@
     <button class="copy-btn" onclick="copyScript()">📋 Copy the script</button>
     <pre id="apps-script-code"></pre>
     <button class="btn-outline" onclick="closeHelp()">Close</button>
+  </div>
+</div>
+
+<!-- ============ CLOUD SETUP MODAL ============ -->
+<div class="modal-backdrop" id="cloud-modal" onclick="if(event.target===this)closeCloudHelp()">
+  <div class="modal">
+    <h2>☁️ One-time cloud setup</h2>
+    <div class="modal-sub">~5 minutes. This gives you a free online database (Supabase) that stores your workouts and syncs them across devices. No Google, no server, nothing that can be blocked. You only do this once.</div>
+    <ol>
+      <li>Go to <code>supabase.com</code> → <b>Start your project</b> → sign up (free) → <b>New project</b>. Pick a name, a region near you, and a database password (save it somewhere).</li>
+      <li>Wait ~2 min for it to finish setting up. Then open <b>SQL Editor</b> (left sidebar) → <b>New query</b> → paste the snippet below → <b>Run</b>.</li>
+      <li>Open <b>Authentication → URL Configuration</b>. Set <b>Site URL</b> to <code>https://bbutty-git.github.io/gym-tracker/</code> and add that same address under <b>Redirect URLs</b>. (This is what lets the email sign-in link bring you back to the app.)</li>
+      <li>Open <b>Project Settings → API</b>. Copy the <b>Project URL</b> and the <b>anon public</b> key.</li>
+      <li>Paste both into the two fields in Settings, then type your email and tap <b>“Email me a sign-in link.”</b> Click the link in your inbox → you're synced. 🎉</li>
+    </ol>
+    <button class="copy-btn" onclick="copySql()">📋 Copy the SQL</button>
+    <pre id="cloud-sql"></pre>
+    <div class="modal-sub" style="margin:0 0 14px;">The anon key is <i>designed</i> to be public and is protected by the security rule in that SQL — only a signed-in account can read its own rows. It's safe to paste into the app.</div>
+    <button class="btn-outline" onclick="closeCloudHelp()">Close</button>
   </div>
 </div>
 
@@ -989,6 +1051,7 @@ function completeWorkout() {
   store.history = hist.slice(0, 200);
   workout = null;
   store.active = null;
+  syncPush();
 
   renderSummary();
   showScreen('summary');
@@ -1319,9 +1382,12 @@ function renderSettings() {
   document.getElementById('cfg-script').value = s.scriptUrl || '';
   document.getElementById('cfg-sheet').value = s.sheetUrl || '';
   document.getElementById('cfg-doc').value = s.docUrl || '';
+  document.getElementById('cfg-sb-url').value = s.sbUrl || '';
+  document.getElementById('cfg-sb-key').value = s.sbKey || '';
   renderBwTrend();
   renderMaxLifts();
   updateSyncStatus();
+  updateCloudUI();
 }
 
 function renderBwTrend() {
@@ -1392,12 +1458,14 @@ function addMaxLiftFromInput() {
   s.maxLifts.push(name);
   store.settings = s;
   renderMaxLifts();
+  syncPush();
 }
 function removeMaxLift(i) {
   const s = store.settings;
   s.maxLifts.splice(i, 1);
   store.settings = s;
   renderMaxLifts();
+  syncPush();
 }
 
 function heaviestSet(name) {
@@ -1442,10 +1510,14 @@ function saveSettings() {
   s.scriptUrl = document.getElementById('cfg-script').value.trim();
   s.sheetUrl = document.getElementById('cfg-sheet').value.trim();
   s.docUrl = document.getElementById('cfg-doc').value.trim();
+  s.sbUrl = document.getElementById('cfg-sb-url').value.trim().replace(/\/+$/, '');
+  s.sbKey = document.getElementById('cfg-sb-key').value.trim();
   if (s.scriptUrl && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(s.scriptUrl)) {
     toast('Bridge URL should end in /exec'); return;
   }
   store.settings = s;
+  sbInit();
+  syncPush();
   toast('Settings saved ✓');
   goHome();
 }
@@ -1459,6 +1531,200 @@ function closeHelp() { document.getElementById('help-modal').classList.remove('o
 function copyScript() {
   navigator.clipboard.writeText(APPS_SCRIPT_CODE)
     .then(() => toast('Script copied ✓')).catch(() => toast('Copy failed'));
+}
+
+/* ================= cloud (Supabase) ================= */
+const SUPABASE_SQL = `create table if not exists public.gym_state (
+  user_id uuid primary key references auth.users on delete cascade,
+  data jsonb not null default '{}',
+  updated_at timestamptz not null default now()
+);
+alter table public.gym_state enable row level security;
+create policy "own state" on public.gym_state
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);`;
+
+let sb = null, sbUser = null, sbPushTimer = null, sbPulledFor = null, sbCreds = '', cloudLastSync = '';
+
+function openCloudHelp() { document.getElementById('cloud-sql').textContent = SUPABASE_SQL; document.getElementById('cloud-modal').classList.add('open'); }
+function closeCloudHelp() { document.getElementById('cloud-modal').classList.remove('open'); }
+function copySql() { navigator.clipboard.writeText(SUPABASE_SQL).then(() => toast('SQL copied ✓')).catch(() => toast('Copy failed')); }
+
+function sbInit() {
+  if (!window.supabase) return;
+  const s = store.settings;
+  if (!s.sbUrl || !s.sbKey) { sb = null; sbCreds = ''; return; }
+  const key = s.sbUrl + '|' + s.sbKey;
+  if (sb && sbCreds === key) return;
+  try {
+    sb = window.supabase.createClient(s.sbUrl, s.sbKey);
+    sbCreds = key;
+    sb.auth.onAuthStateChange((event, session) => {
+      sbUser = session ? session.user : null;
+      updateCloudUI();
+      if (sbUser && sbPulledFor !== sbUser.id) onSignedIn();
+      if (!sbUser) sbPulledFor = null;
+    });
+  } catch (e) { console.warn('sbInit failed', e); sb = null; sbCreds = ''; }
+}
+
+async function onSignedIn() {
+  if (!sb || !sbUser) return;
+  sbPulledFor = sbUser.id;
+  try {
+    const { data, error } = await sb.from('gym_state').select('data').eq('user_id', sbUser.id).maybeSingle();
+    if (error) throw error;
+    mergeRemote(data ? data.data : null);
+    await pushState();
+    refreshActiveScreen();
+    toast('Cloud synced ✓');
+  } catch (e) {
+    console.warn('cloud pull failed', e);
+    toast('Sync issue: ' + (e.message || e));
+  }
+}
+
+function mergeRemote(remote) {
+  if (!remote || typeof remote !== 'object') return;
+  const local = store.history || [];
+  const remoteHist = Array.isArray(remote.history) ? remote.history : [];
+  const seen = {}; const merged = [];
+  [...remoteHist, ...local].forEach(w => {
+    if (!w) return;
+    const k = String(w.startedAt || (w.dateISO + '|' + ((w.exercises || []).map(e => e.name).join(','))));
+    if (seen[k]) return;
+    seen[k] = 1; merged.push(w);
+  });
+  merged.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+  store.history = merged.slice(0, 200);
+  const p = remote.profile || {};
+  const s = store.settings;
+  ['name', 'height', 'bodyweight', 'unit'].forEach(k => { if (p[k] !== undefined && p[k] !== '' && p[k] !== null) s[k] = p[k]; });
+  if (Array.isArray(p.maxLifts) && p.maxLifts.length) s.maxLifts = p.maxLifts;
+  if (Array.isArray(p.bodyweightLog) && p.bodyweightLog.length >= (s.bodyweightLog || []).length) s.bodyweightLog = p.bodyweightLog;
+  store.settings = s;
+}
+
+function syncPush() {
+  if (!sb || !sbUser) return;
+  clearTimeout(sbPushTimer);
+  sbPushTimer = setTimeout(pushState, 900);
+}
+async function pushState() {
+  if (!sb || !sbUser) return;
+  const s = store.settings;
+  const payload = {
+    history: store.history,
+    profile: { name: s.name || '', height: s.height || '', bodyweight: s.bodyweight || '', unit: s.unit || 'lbs', maxLifts: s.maxLifts || [], bodyweightLog: s.bodyweightLog || [] }
+  };
+  try {
+    const { error } = await sb.from('gym_state').upsert({ user_id: sbUser.id, data: payload, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error) throw error;
+    cloudLastSync = 'synced ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    updateCloudUI();
+  } catch (e) { console.warn('cloud push failed', e); }
+}
+function manualSync() { pushState().then(() => toast('Synced ✓')); }
+
+async function cloudSignIn() {
+  const url = document.getElementById('cfg-sb-url').value.trim().replace(/\/+$/, '');
+  const key = document.getElementById('cfg-sb-key').value.trim();
+  if (!url || !key) { toast('Add your Project URL + anon key first'); return; }
+  const s = store.settings; s.sbUrl = url; s.sbKey = key; store.settings = s;
+  sbInit();
+  if (!sb) { toast('Cloud unavailable — check the URL/key or your connection'); return; }
+  const emailEl = document.getElementById('cloud-email');
+  const email = emailEl ? emailEl.value.trim() : '';
+  if (!email) { toast('Enter your email'); return; }
+  try {
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0].split('?')[0] } });
+    if (error) throw error;
+    toast('Check your email for the sign-in link ✉️');
+  } catch (e) { toast('Sign-in error: ' + (e.message || e)); }
+}
+async function cloudSignOut() {
+  if (sb) { try { await sb.auth.signOut(); } catch (e) {} }
+  sbUser = null; sbPulledFor = null; cloudLastSync = '';
+  updateCloudUI(); toast('Signed out');
+}
+
+function updateCloudUI() {
+  const statusEl = document.getElementById('cloud-status');
+  const authEl = document.getElementById('cloud-auth');
+  if (!statusEl || !authEl) return;
+  if (!window.supabase) {
+    statusEl.className = 'status off'; statusEl.textContent = 'offline';
+    authEl.innerHTML = '<div class="maxlift-hint" style="padding:6px 0 0;">Cloud library couldn’t load — you may be offline. Your workouts are still saved on this device.</div>';
+    return;
+  }
+  const urlField = (document.getElementById('cfg-sb-url').value || '').trim();
+  const keyField = (document.getElementById('cfg-sb-key').value || '').trim();
+  const s = store.settings;
+  const haveCreds = (urlField && keyField) || (s.sbUrl && s.sbKey);
+  if (sbUser) {
+    statusEl.className = 'status on'; statusEl.innerHTML = '<span class="dot"></span> Signed in';
+    authEl.innerHTML = `<div class="maxlift-hint" style="padding:0 0 8px;">Signed in as <b>${escapeHtml(sbUser.email || '')}</b>${cloudLastSync ? ' · ' + escapeHtml(cloudLastSync) : ''}</div>
+      <div style="display:flex;gap:8px;"><button class="btn-outline" style="flex:1;" onclick="manualSync()">Sync now</button><button class="btn-outline" style="flex:1;" onclick="cloudSignOut()">Sign out</button></div>`;
+  } else if (haveCreds) {
+    statusEl.className = 'status off'; statusEl.textContent = 'Sign in';
+    authEl.innerHTML = `<input class="url-input" id="cloud-email" type="email" placeholder="you@email.com" style="margin:0 0 8px;">
+      <button class="btn-outline" onclick="cloudSignIn()">Email me a sign-in link</button>`;
+  } else {
+    statusEl.className = 'status off'; statusEl.textContent = 'Not set up'; authEl.innerHTML = '';
+  }
+}
+
+function refreshActiveScreen() {
+  const el = document.querySelector('.screen.active');
+  if (!el) return;
+  const id = el.id.replace('screen-', '');
+  if (id === 'home') renderHome();
+  else if (id === 'history') renderHistory();
+  else if (id === 'settings') renderSettings();
+}
+
+/* ================= export ================= */
+function downloadFile(name, mime, content) {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+function csvCell(v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function exportCSV() {
+  const u = unit();
+  const rows = [['Date', 'Exercise', 'Set', 'Weight (' + u + ')', 'Reps', 'Tags', 'Notes', 'Volume']];
+  store.history.slice().reverse().forEach(w => {
+    w.exercises.forEach(ex => ex.sets.forEach((s, i) => {
+      const vol = (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
+      rows.push([fmtLong(w.dateISO), ex.name, i + 1, s.weight, s.reps, tagsString(s), i === 0 ? (ex.notes || '') : '', vol]);
+    }));
+  });
+  if (rows.length === 1) { toast('No workouts to export yet'); return; }
+  downloadFile('gym-workouts.csv', 'text/csv;charset=utf-8', rows.map(r => r.map(csvCell).join(',')).join('\n'));
+  toast('CSV downloaded ✓');
+}
+function exportDoc() {
+  const u = unit();
+  if (!store.history.length) { toast('No workouts to export yet'); return; }
+  let body = '';
+  store.history.slice().reverse().forEach(w => {
+    body += '<h2>Workout — ' + escapeHtml(fmtLong(w.dateISO)) + (w.duration ? ' (' + escapeHtml(w.duration) + ')' : '') + '</h2>';
+    w.exercises.forEach(ex => {
+      body += '<h3>' + escapeHtml(ex.name) + '</h3><ul>';
+      ex.sets.forEach((s, i) => {
+        const tags = tagsString(s);
+        body += '<li>Set ' + (i + 1) + ': ' + escapeHtml(String(s.weight)) + u + ' &times; ' + escapeHtml(String(s.reps)) + (tags ? '  [' + escapeHtml(tags) + ']' : '') + '</li>';
+      });
+      body += '</ul>';
+      if (ex.notes) body += '<p><i>&ldquo;' + escapeHtml(ex.notes) + '&rdquo;</i></p>';
+    });
+  });
+  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Gym Log</title></head>'
+    + '<body style="font-family:Calibri,Arial,sans-serif;color:#111;"><h1>Workout Log</h1>' + body + '</body></html>';
+  downloadFile('gym-log.doc', 'application/msword', html);
+  toast('Doc downloaded ✓');
 }
 
 /* ================= utils ================= */
@@ -1511,6 +1777,8 @@ document.getElementById('ex-notes').addEventListener('input', e => {
 });
 
 renderHome();
+// Supabase client loads deferred; init once it's available (also processes magic-link redirects)
+window.addEventListener('load', () => { try { sbInit(); } catch (e) { console.warn(e); } });
 </script>
 </body>
 </html>
