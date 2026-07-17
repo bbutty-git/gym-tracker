@@ -110,6 +110,24 @@
   .discard-link { text-align: center; font-size: 11px; font-weight: 600; color: var(--dimmer); cursor: pointer; }
   .mini-del { background: none; border: none; color: var(--dimmer); cursor: pointer; font-size: 14px; line-height: 1; padding: 4px 6px; border-radius: 8px; flex-shrink: 0; }
   .mini-del:active { background: rgba(229,83,75,.18); }
+  /* workout type + body parts selectors */
+  .sel-row { display: flex; gap: 10px; }
+  .sel-box { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 11px 13px; cursor: pointer; }
+  .sel-box.open { border-color: var(--pink); box-shadow: inset 0 0 0 1px var(--pink); }
+  .sel-box .sel-label { font-size: 9px; font-weight: 700; letter-spacing: .12em; color: var(--dim); text-transform: uppercase; }
+  .sel-box.open .sel-label { color: var(--pink); }
+  .sel-box .sel-value { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+  .sel-box .sel-value > span:first-child { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #type-value.amber { color: var(--amber); }
+  #bp-value.placeholder { color: var(--dim); }
+  .sel-box .sel-value .caret { font-size: 10px; font-weight: 600; color: var(--dim); margin-left: auto; flex-shrink: 0; }
+  .bp-panel { display: none; background: #232329; border: 1px solid var(--border2); border-radius: 16px; padding: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+  .bp-panel.open { display: block; }
+  .bp-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .bp-pill { border: 1px solid rgba(255,255,255,.15); border-radius: 99px; padding: 7px 14px; font: 600 12px Montserrat, sans-serif; color: rgba(255,255,255,.7); background: transparent; cursor: pointer; }
+  .bp-pill.on { background: var(--pink-soft); border-color: var(--pink-line); color: var(--pink); font-weight: 700; }
+  .bp-done { margin-top: 12px; background: var(--pink); border-radius: 12px; padding: 11px; text-align: center; font: 700 12px Montserrat, sans-serif; color: #fff; cursor: pointer; }
+  .bp-done:active { background: #d91a71; }
   .confirm-backdrop { align-items: center !important; padding: 20px; }
   .confirm-card {
     background: var(--panel); border: 1px solid var(--border2); border-radius: 18px;
@@ -420,6 +438,21 @@
       <input type="date" id="log-date-input" onchange="changeLogDate(this.value)">
     </div>
 
+    <div class="sel-row">
+      <div class="sel-box" id="type-box" onclick="openTypeMenu(event)">
+        <div class="sel-label">Workout type</div>
+        <div class="sel-value"><span id="type-value">Performance</span><span class="caret">▾</span></div>
+      </div>
+      <div class="sel-box" id="bp-box" onclick="toggleBodyParts(event)">
+        <div class="sel-label">Body parts</div>
+        <div class="sel-value"><span id="bp-value" class="placeholder">Select…</span><span class="caret" id="bp-caret">▾</span></div>
+      </div>
+    </div>
+    <div class="bp-panel" id="bp-panel">
+      <div class="bp-pills" id="bp-pills"></div>
+      <div class="bp-done" onclick="closeBodyParts()">Done</div>
+    </div>
+
     <div class="ex-card">
       <div class="ex-card-top">
         <div class="ex-count" id="ex-count">EXERCISE 1</div>
@@ -636,6 +669,9 @@ const PRESET_EXERCISES = [
 
 const SET_TYPES = { working: 'Working set', warmup: 'Warm up set' };
 const EXTRAS = { finisher: 'Finisher', drop: 'Drop Sets', restpause: 'Rest/Pause' };
+const WORKOUT_TYPES = ['Performance', 'Hypertrophy', 'Strength', 'Endurance', 'Deload', 'Recovery'];
+const LIGHT_TYPES = ['Deload', 'Recovery'];       // shown in amber
+const BODY_PARTS = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs', 'Glutes', 'Core'];
 const FLAME = '<svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(247,37,133,.25)" stroke="#F72585" stroke-width="2" style="vertical-align:-1px"><path d="M12 3c1 3-2 4.5-2 7a4 4 0 008 0c0-1.5-.7-2.6-1.5-3.5C15.5 8.5 14 9 14 7c0-1.5-.8-3-2-4z"></path></svg>';
 const FLAME_LG = FLAME.replace(/width="10" height="10"/, 'width="16" height="16"');
 const CLOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>';
@@ -816,10 +852,12 @@ function startWorkout() {
     workout = active;
     if (!workout.current) workout.current = newCurrent();
     if (!workout.current.pending) workout.current.pending = newPending();
+    if (!workout.type) workout.type = 'Performance';
+    if (!workout.bodyParts) workout.bodyParts = [];
     openLogScreen();
     return;
   }
-  workout = { dateISO: homeDateISO, startedAt: Date.now(), exercises: [], current: newCurrent() };
+  workout = { dateISO: homeDateISO, startedAt: Date.now(), exercises: [], current: newCurrent(), type: 'Performance', bodyParts: [] };
   store.active = workout;
   openLogScreen(true);
 }
@@ -840,9 +878,82 @@ function confirmAbandon() {
 function openLogScreen(focusName) {
   syncUnitToggles();
   renderLogDate();
+  renderWorkoutMeta();
+  closeBodyParts();
   renderExerciseCard();
   showScreen('log');
   if (focusName) setTimeout(() => document.getElementById('ex-name').focus(), 60);
+}
+
+/* ---------- workout type + body parts ---------- */
+function renderWorkoutMeta() {
+  if (!workout) return;
+  const tv = document.getElementById('type-value');
+  tv.textContent = workout.type || 'Performance';
+  tv.classList.toggle('amber', LIGHT_TYPES.includes(workout.type));
+  const bv = document.getElementById('bp-value');
+  const bp = workout.bodyParts || [];
+  if (bp.length) { bv.textContent = bp.join(', '); bv.classList.remove('placeholder'); }
+  else { bv.textContent = 'Select…'; bv.classList.add('placeholder'); }
+}
+
+function openTypeMenu(e) {
+  e.stopPropagation();
+  closeChipMenu();
+  closeBodyParts();
+  const m = document.createElement('div');
+  m.className = 'chip-menu';
+  WORKOUT_TYPES.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'mi' + (workout.type === t ? ' on' : '');
+    d.innerHTML = escapeHtml(t) + (workout.type === t ? '<span class="tick">✓</span>' : '');
+    d.onclick = ev => { ev.stopPropagation(); workout.type = t; store.active = workout; closeChipMenu(); renderWorkoutMeta(); };
+    m.appendChild(d);
+  });
+  document.body.appendChild(m);
+  const r = e.currentTarget.getBoundingClientRect();
+  let x = Math.min(r.left, window.innerWidth - m.offsetWidth - 10);
+  let y = r.bottom + 6;
+  if (y + m.offsetHeight > window.innerHeight - 10) y = r.top - m.offsetHeight - 6;
+  m.style.left = Math.max(10, x) + 'px';
+  m.style.top = Math.max(10, y) + 'px';
+  chipMenuEl = m;
+}
+
+function toggleBodyParts(e) {
+  e.stopPropagation();
+  closeChipMenu();
+  const panel = document.getElementById('bp-panel');
+  const open = !panel.classList.contains('open');
+  panel.classList.toggle('open', open);
+  document.getElementById('bp-box').classList.toggle('open', open);
+  document.getElementById('bp-caret').textContent = open ? '▴' : '▾';
+  if (open) renderBodyPartPills();
+}
+function closeBodyParts() {
+  const panel = document.getElementById('bp-panel');
+  if (panel) panel.classList.remove('open');
+  const box = document.getElementById('bp-box');
+  if (box) box.classList.remove('open');
+  const caret = document.getElementById('bp-caret');
+  if (caret) caret.textContent = '▾';
+}
+function renderBodyPartPills() {
+  const el = document.getElementById('bp-pills');
+  const sel = workout.bodyParts || [];
+  el.innerHTML = BODY_PARTS.map(bp => {
+    const on = sel.includes(bp);
+    return `<button class="bp-pill ${on ? 'on' : ''}" onclick="toggleBodyPart(event, '${bp}')">${on ? '✓ ' : ''}${bp}</button>`;
+  }).join('');
+}
+function toggleBodyPart(e, bp) {
+  e.stopPropagation();
+  workout.bodyParts = workout.bodyParts || [];
+  const i = workout.bodyParts.indexOf(bp);
+  if (i > -1) workout.bodyParts.splice(i, 1); else workout.bodyParts.push(bp);
+  store.active = workout;
+  renderBodyPartPills();
+  renderWorkoutMeta();
 }
 function renderLogDate() {
   document.getElementById('log-date-label').textContent = fmtLong(workout.dateISO);
@@ -1116,6 +1227,11 @@ function tagsString(s) {
   if (s.extra) t.push(EXTRAS[s.extra]);
   return t.join(' · ');
 }
+// "Deload · Chest, Triceps" — the workout's type + body parts, for display/export
+function workoutMetaStr(w) {
+  return [w && w.type, (w && w.bodyParts && w.bodyParts.length) ? w.bodyParts.join(', ') : '']
+    .filter(Boolean).join(' · ');
+}
 function setChipHtml(s) {
   const tech = s.extra ? ` <span class="tech-tag">${EXTRAS[s.extra].toUpperCase()}</span>` : '';
   if (s.max) return `<div class="hist-chip max">${escapeHtml(String(s.weight))} × ${escapeHtml(String(s.reps))} ${FLAME}</div>`;
@@ -1174,7 +1290,7 @@ function closePerf() { document.getElementById('perf-sheet').classList.remove('o
 function renderSummary() {
   const w = finishedWorkout;
   const u = unit();
-  document.getElementById('summary-date').textContent = fmtLong(w.dateISO) + ' · ' + w.duration;
+  document.getElementById('summary-date').textContent = fmtLong(w.dateISO) + ' · ' + w.duration + (workoutMetaStr(w) ? ' · ' + workoutMetaStr(w) : '');
 
   const totalSets = w.exercises.reduce((n, ex) => n + ex.sets.length, 0);
   const volume = w.exercises.reduce((v, ex) =>
@@ -1198,7 +1314,9 @@ function renderSummary() {
 
 function formatWorkoutText(w) {
   const u = unit();
-  let out = 'Workout — ' + fmtLong(w.dateISO) + (w.duration ? ' (' + w.duration + ')' : '') + '\n\n';
+  let out = 'Workout — ' + fmtLong(w.dateISO) + (w.duration ? ' (' + w.duration + ')' : '') + '\n';
+  if (workoutMetaStr(w)) out += workoutMetaStr(w) + '\n';
+  out += '\n';
   w.exercises.forEach(ex => {
     out += ex.name + '\n';
     ex.sets.forEach((s, i) => {
@@ -1236,6 +1354,7 @@ function renderHistory() {
         </div>
       </div>
       <div class="hd" style="margin-top:2px;"><div class="m">${w.exercises.length} exercise${w.exercises.length !== 1 ? 's' : ''} · ${sets} sets${w.duration ? ' · ' + w.duration : ''}</div></div>
+      ${workoutMetaStr(w) ? `<div class="m" style="margin-top:3px;color:${LIGHT_TYPES.includes(w.type) ? 'var(--amber)' : 'var(--pink)'};">${escapeHtml(workoutMetaStr(w))}</div>` : ''}
       ${w.exercises.map(ex => `
         <div class="hist-ex">
           <div class="exn">${escapeHtml(ex.name)}</div>
@@ -1593,11 +1712,12 @@ function downloadFile(name, mime, content) {
 function csvCell(v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 function exportCSV() {
   const u = unit();
-  const rows = [['Date', 'Exercise', 'Set', 'Weight (' + u + ')', 'Reps', 'Tags', 'Notes', 'Volume']];
+  const rows = [['Date', 'Workout Type', 'Body Parts', 'Exercise', 'Set', 'Weight (' + u + ')', 'Reps', 'Tags', 'Notes', 'Volume']];
   store.history.slice().reverse().forEach(w => {
+    const bp = (w.bodyParts || []).join(', ');
     w.exercises.forEach(ex => ex.sets.forEach((s, i) => {
       const vol = (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
-      rows.push([fmtLong(w.dateISO), ex.name, i + 1, s.weight, s.reps, tagsString(s), i === 0 ? (ex.notes || '') : '', vol]);
+      rows.push([fmtLong(w.dateISO), w.type || '', bp, ex.name, i + 1, s.weight, s.reps, tagsString(s), i === 0 ? (ex.notes || '') : '', vol]);
     }));
   });
   if (rows.length === 1) { toast('No workouts to export yet'); return; }
@@ -1610,6 +1730,7 @@ function exportDoc() {
   let body = '';
   store.history.slice().reverse().forEach(w => {
     body += '<h2>Workout — ' + escapeHtml(fmtLong(w.dateISO)) + (w.duration ? ' (' + escapeHtml(w.duration) + ')' : '') + '</h2>';
+    if (workoutMetaStr(w)) body += '<p style="margin:0 0 6px;color:#F72585;font-weight:bold;">' + escapeHtml(workoutMetaStr(w)) + '</p>';
     w.exercises.forEach(ex => {
       body += '<h3>' + escapeHtml(ex.name) + '</h3><ul>';
       ex.sets.forEach((s, i) => {
@@ -1675,6 +1796,7 @@ exNameInput.addEventListener('keydown', e => {
 document.addEventListener('click', e => {
   if (!e.target.closest('.ex-name-wrap')) document.getElementById('ac-list').classList.remove('open');
   if (!e.target.closest('.chip-menu')) closeChipMenu();
+  if (!e.target.closest('#bp-panel') && !e.target.closest('#bp-box')) closeBodyParts();
 });
 document.getElementById('in-weight').addEventListener('keydown', e => { if (e.key === 'Enter') logSet(); });
 document.getElementById('ex-notes').addEventListener('input', e => {
