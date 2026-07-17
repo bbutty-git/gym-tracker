@@ -150,6 +150,34 @@
     font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); cursor: pointer;
     background: none; border: none; font-family: inherit;
   }
+  /* deload counter + body-part recency */
+  .deload-card {
+    display: flex; align-items: center; gap: 12px; background: var(--surface);
+    border: 1px solid rgba(255,180,84,.35); border-radius: 16px; padding: 14px;
+  }
+  .deload-card .dl-icon { width: 44px; height: 44px; border-radius: 14px; background: rgba(255,180,84,.12); display: grid; place-items: center; flex-shrink: 0; }
+  .deload-card .dl-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
+  .deload-card .dl-value { font-size: 20px; font-weight: 800; color: var(--amber); margin-top: 1px; }
+  .deload-card .dl-date { font-size: 11px; font-weight: 600; color: var(--dimmer); white-space: nowrap; }
+  .deload-card .dl-reset {
+    background: rgba(255,180,84,.1); border: 1px solid rgba(255,180,84,.3); color: var(--amber);
+    width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+    cursor: pointer; flex-shrink: 0;
+  }
+  .deload-card .dl-reset:active { background: rgba(255,180,84,.25); }
+  .bp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bp-cell {
+    display: flex; align-items: center; gap: 10px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 14px; padding: 11px 13px;
+  }
+  .bp-cell .n { font-size: 18px; font-weight: 800; min-width: 26px; text-align: center; }
+  .bp-cell.fresh .n { color: var(--green); }
+  .bp-cell.mid .n { color: var(--amber); }
+  .bp-cell.stale { border-color: rgba(247,37,133,.4); }
+  .bp-cell.stale .n { color: var(--pink); }
+  .bp-cell.never .n { color: var(--dimmer); font-size: 15px; }
+  .bp-cell .bpn { font-size: 12px; font-weight: 700; }
+  .bp-cell .bpd { font-size: 10px; font-weight: 500; color: var(--dim); margin-top: 1px; }
 
   /* ---------- log screen ---------- */
   .ex-card {
@@ -389,7 +417,7 @@
         <div class="greet-h">Ready to lift?</div>
       </div>
       <div class="head-actions">
-        <button class="icon-btn" onclick="showScreen('settings')" title="Settings">⚙️</button>
+        <button class="icon-btn" onclick="showScreen('settings')" title="Settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 00-2-1.2L14 3h-4l-.5 2.6a7 7 0 00-2 1.2l-2.4-1-2 3.5 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.5 2.4-1a7 7 0 002 1.2L10 21h4l.5-2.6a7 7 0 002-1.2l2.4 1 2-3.5-2-1.5c.06-.4.1-.8.1-1.2z"></path></svg></button>
         <div class="unit-toggle" id="home-unit" onclick="toggleUnit()">
           <span data-u="lbs">lbs</span><span data-u="kg">kg</span>
         </div>
@@ -408,12 +436,27 @@
     </button>
     <div class="discard-link" id="home-discard" onclick="discardActive()" style="display:none;">Discard in-progress workout</div>
 
-    <div class="set-group" id="home-last-group">
-      <div class="section-label">Last workout</div>
-      <div id="home-last"></div>
+    <div class="deload-card">
+      <div class="dl-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFB454" stroke-width="2"><path d="M12 8v4l2.5 2.5"></path><circle cx="12" cy="12" r="9"></circle></svg>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="dl-label">Since last deload</div>
+        <div class="dl-value" id="deload-days">—</div>
+      </div>
+      <div class="dl-date" id="deload-date"></div>
+      <button class="dl-reset" onclick="askResetDeload()" title="Reset deload counter">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.5 9.5 0 00-6.7 2.8L3 8"></path><path d="M3 3v5h5"></path></svg>
+      </button>
     </div>
 
-    <div class="stat-row" id="home-stats"></div>
+    <div class="set-group">
+      <div class="gh">
+        <div class="section-label">Days since trained</div>
+        <div class="hint" style="font-size:10.5px;font-weight:500;color:var(--dimmer);">by body part</div>
+      </div>
+      <div class="bp-grid" id="bp-recency"></div>
+    </div>
 
     <button class="link-row" onclick="showScreen('history')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"></path></svg>
@@ -784,36 +827,8 @@ function renderHome() {
     document.getElementById('home-discard').style.display = 'none';
   }
 
-  // last workout
-  const hist = store.history;
-  const lastEl = document.getElementById('home-last');
-  if (hist.length) {
-    const w = hist[0];
-    const sets = w.exercises.reduce((n, ex) => n + ex.sets.length, 0);
-    const names = w.exercises.map(e => e.name);
-    const shown = names.slice(0, 2);
-    const extra = names.length - shown.length;
-    lastEl.innerHTML = `<div class="last-card">
-      <div class="lh"><div class="d">${escapeHtml(fmtMed(w))}</div>
-        <div style="display:flex;align-items:center;gap:6px;"><div class="m">${w.exercises.length} exercise${w.exercises.length !== 1 ? 's' : ''} · ${sets} sets</div>
-        <button class="mini-del" onclick="askDeleteWorkout(0)" title="Delete workout">🗑</button></div>
-      </div>
-      <div class="last-chips">
-        ${shown.map(n => `<div class="last-chip">${escapeHtml(n)}</div>`).join('')}
-        ${extra > 0 ? `<div class="last-chip">+${extra}</div>` : ''}
-      </div>
-    </div>`;
-  } else {
-    lastEl.innerHTML = `<div class="last-card"><div class="last-empty">No workouts yet — your first one starts above. 💪</div></div>`;
-  }
-
-  // stats
-  const st = statsHome();
-  const monthAbbr = now.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-  document.getElementById('home-stats').innerHTML = `
-    <div class="stat"><div class="num" style="color:var(--green)">${st.workoutsThisMonth}</div><div class="lbl">WORKOUTS · ${monthAbbr}</div></div>
-    <div class="stat"><div class="num" style="color:var(--amber)">${st.maxSetsThisWeek}</div><div class="lbl">MAX SETS · WK</div></div>
-    <div class="stat"><div class="num" style="color:var(--cyan)">${st.dayStreak}</div><div class="lbl">DAY STREAK</div></div>`;
+  renderDeload();
+  renderBodyPartRecency();
 }
 
 function changeHomeDate(iso) {
@@ -824,25 +839,59 @@ function changeHomeDate(iso) {
   renderHome();
 }
 
-function statsHome() {
-  const hist = store.history;
-  const now = new Date();
-  let workoutsThisMonth = 0, maxSetsThisWeek = 0;
-  const weekAgo = Date.now() - 7 * 864e5;
-  hist.forEach(w => {
-    const d = isoToDate(w.dateISO);
-    if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) workoutsThisMonth++;
-    if (d.getTime() >= weekAgo) w.exercises.forEach(ex => ex.sets.forEach(x => { if (x.max) maxSetsThisWeek++; }));
+/* ---------- deload counter + body-part recency ---------- */
+// Effective "last deload" = the later of: most recent workout typed Deload, or a manual reset.
+function lastDeloadISO() {
+  let latest = store.settings.deloadResetISO || null;
+  store.history.forEach(w => {
+    if (w.type === 'Deload' && w.dateISO && (!latest || w.dateISO > latest)) latest = w.dateISO;
   });
-  const days = [...new Set(hist.map(w => w.dateISO))].sort().reverse();
-  let dayStreak = 0;
-  if (days.length && todayDayIndex() - isoDayIndex(days[0]) <= 1) {
-    dayStreak = 1;
-    for (let k = 1; k < days.length; k++) {
-      if (isoDayIndex(days[k - 1]) - isoDayIndex(days[k]) === 1) dayStreak++; else break;
-    }
+  return latest;
+}
+
+function renderDeload() {
+  const iso = lastDeloadISO();
+  const daysEl = document.getElementById('deload-days');
+  const dateEl = document.getElementById('deload-date');
+  if (!iso) {
+    daysEl.textContent = '—';
+    dateEl.textContent = 'no deload yet';
+    return;
   }
-  return { workoutsThisMonth, maxSetsThisWeek, dayStreak };
+  const days = Math.max(0, todayDayIndex() - isoDayIndex(iso));
+  daysEl.textContent = days + ' day' + (days !== 1 ? 's' : '');
+  dateEl.textContent = fmtShortISO(iso);
+}
+
+function askResetDeload() {
+  uiConfirm('Reset the deload counter to today?', 'Reset', () => {
+    const s = store.settings;
+    s.deloadResetISO = todayISO();
+    store.settings = s;
+    syncPush();
+    renderDeload();
+    toast('Deload counter reset ✓');
+  });
+}
+
+function renderBodyPartRecency() {
+  const el = document.getElementById('bp-recency');
+  // most recent workout date per body part
+  const last = {};
+  store.history.forEach(w => {
+    (w.bodyParts || []).forEach(bp => {
+      if (!last[bp] || w.dateISO > last[bp]) last[bp] = w.dateISO;
+    });
+  });
+  el.innerHTML = BODY_PARTS.map(bp => {
+    const iso = last[bp];
+    if (!iso) {
+      return `<div class="bp-cell never"><div class="n">—</div><div><div class="bpn">${escapeHtml(bp)}</div><div class="bpd">not logged yet</div></div></div>`;
+    }
+    const days = Math.max(0, todayDayIndex() - isoDayIndex(iso));
+    const tier = days <= 3 ? 'fresh' : (days <= 7 ? 'mid' : 'stale');
+    return `<div class="bp-cell ${tier}"><div class="n">${days}</div><div><div class="bpn">${escapeHtml(bp)}</div><div class="bpd">${escapeHtml(fmtMedISO(iso))}</div></div></div>`;
+  }).join('');
 }
 
 /* ================= workout flow ================= */
@@ -1580,6 +1629,7 @@ function mergeRemote(remote) {
   ['name', 'height', 'bodyweight', 'unit'].forEach(k => { if (p[k] !== undefined && p[k] !== '' && p[k] !== null) s[k] = p[k]; });
   if (Array.isArray(p.maxLifts) && p.maxLifts.length) s.maxLifts = p.maxLifts;
   if (Array.isArray(p.bodyweightLog) && p.bodyweightLog.length >= (s.bodyweightLog || []).length) s.bodyweightLog = p.bodyweightLog;
+  if (p.deloadResetISO && (!s.deloadResetISO || p.deloadResetISO > s.deloadResetISO)) s.deloadResetISO = p.deloadResetISO; // later reset wins
   store.settings = s;
 }
 
@@ -1614,7 +1664,7 @@ async function pushState() {
   const payload = {
     history: store.history,
     deleted: s.deletedWorkouts || [],
-    profile: { name: s.name || '', height: s.height || '', bodyweight: s.bodyweight || '', unit: s.unit || 'lbs', maxLifts: s.maxLifts || [], bodyweightLog: s.bodyweightLog || [] }
+    profile: { name: s.name || '', height: s.height || '', bodyweight: s.bodyweight || '', unit: s.unit || 'lbs', maxLifts: s.maxLifts || [], bodyweightLog: s.bodyweightLog || [], deloadResetISO: s.deloadResetISO || null }
   };
   try {
     const { error } = await sb.from('gym_state').upsert({ user_id: sbUser.id, data: payload, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
