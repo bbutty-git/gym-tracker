@@ -382,9 +382,6 @@
       <div class="s" id="start-sub">Exercise 1 · empty log</div>
     </button>
     <div class="discard-link" id="home-discard" onclick="discardActive()" style="display:none;">Discard in-progress workout</div>
-    <div class="sync-hint" id="home-sync-hint" onclick="showScreen('settings')" style="display:none;">
-      ⚠️ Google sync isn't set up yet — tap to open Settings
-    </div>
 
     <div class="set-group" id="home-last-group">
       <div class="section-label">Last workout</div>
@@ -465,7 +462,6 @@
     </div>
     <div class="summary-stats" id="summary-stats"></div>
     <div id="sync-status"></div>
-    <button class="btn-primary" id="sync-btn" onclick="syncWorkout()">Sync to Google Sheets &amp; Docs</button>
     <button class="btn-outline" onclick="copyFormatted()">Copy formatted text</button>
     <div id="summary-cards" style="display:flex;flex-direction:column;gap:10px;"></div>
     <div class="spacer"></div>
@@ -544,37 +540,6 @@
       </div>
 
       <div class="set-group">
-        <div class="section-label">Sync</div>
-        <div class="card-list">
-          <div class="sync-row">
-            <div class="sh">
-              <div class="ic" style="background:rgba(76,201,240,.12)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4CC9F0" stroke-width="2"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg></div>
-              <div class="nm">Google Doc — workout log</div>
-              <div class="status" id="doc-status"></div>
-            </div>
-            <input class="url-input" id="cfg-doc" placeholder="https://docs.google.com/document/d/…" oninput="updateSyncStatus()">
-          </div>
-          <div class="sync-row">
-            <div class="sh">
-              <div class="ic" style="background:rgba(43,217,169,.12)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2BD9A9" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18"></path></svg></div>
-              <div class="nm">Google Sheet — database</div>
-              <div class="status" id="sheet-status"></div>
-            </div>
-            <input class="url-input" id="cfg-sheet" placeholder="https://docs.google.com/spreadsheets/…" oninput="updateSyncStatus()">
-          </div>
-          <div class="sync-row">
-            <div class="sh">
-              <div class="ic" style="background:rgba(247,37,133,.12)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F72585" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"></path></svg></div>
-              <div class="nm">Apps Script bridge</div>
-              <button class="help-chip" onclick="openHelp()">? Set up</button>
-            </div>
-            <input class="url-input" id="cfg-script" placeholder="https://script.google.com/macros/s/…/exec" oninput="updateSyncStatus()">
-          </div>
-        </div>
-        <div class="maxlift-hint" style="padding:0 2px;">The bridge is a tiny script in your own Google account — it's what actually writes to the Doc and Sheet. Tap “Set up” for the 2-minute walkthrough. (Blocked by your Google account? Use <b>Export</b> below instead — no authorization needed.)</div>
-      </div>
-
-      <div class="set-group">
         <div class="section-label">Export data</div>
         <div class="card-list">
           <div class="sync-row">
@@ -617,26 +582,6 @@
   </div>
 </div>
 
-<!-- ============ HELP MODAL ============ -->
-<div class="modal-backdrop" id="help-modal" onclick="if(event.target===this)closeHelp()">
-  <div class="modal">
-    <h2>📋 One-time Google setup</h2>
-    <div class="modal-sub">~2 minutes. This creates a tiny private script in <i>your</i> Google account that writes workouts to your Sheet and Doc. No passwords or API keys ever touch this app.</div>
-    <ol>
-      <li><b>Create (or pick) a Google Sheet and a Google Doc</b> for your training log, and paste their URLs into Settings.</li>
-      <li>Go to <code>script.new</code> in your browser (opens Google Apps Script).</li>
-      <li>Delete the placeholder code and <b>paste the script below</b>.</li>
-      <li>Click <b>Deploy → New deployment</b>, hit the ⚙️ gear and choose <b>Web app</b>.</li>
-      <li>Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, then click <b>Deploy</b>. (“Anyone” just means the URL works without a Google login — the URL is unguessable and only writes to the Sheet/Doc you specify.)</li>
-      <li>Google will ask you to <b>authorize</b> the script — approve it (it may warn the app is unverified: click Advanced → Go to project).</li>
-      <li><b>Copy the Web app URL</b> (ends in <code>/exec</code>) and paste it into the Apps Script bridge field. Done! 🎉</li>
-    </ol>
-    <button class="copy-btn" onclick="copyScript()">📋 Copy the script</button>
-    <pre id="apps-script-code"></pre>
-    <button class="btn-outline" onclick="closeHelp()">Close</button>
-  </div>
-</div>
-
 <!-- ============ CLOUD SETUP MODAL ============ -->
 <div class="modal-backdrop" id="cloud-modal" onclick="if(event.target===this)closeCloudHelp()">
   <div class="modal">
@@ -676,58 +621,6 @@ const EXTRAS = { finisher: 'Finisher', drop: 'Drop Sets', restpause: 'Rest/Pause
 const FLAME = '<svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(247,37,133,.25)" stroke="#F72585" stroke-width="2" style="vertical-align:-1px"><path d="M12 3c1 3-2 4.5-2 7a4 4 0 008 0c0-1.5-.7-2.6-1.5-3.5C15.5 8.5 14 9 14 7c0-1.5-.8-3-2-4z"></path></svg>';
 const FLAME_LG = FLAME.replace(/width="10" height="10"/, 'width="16" height="16"');
 const CLOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>';
-
-const APPS_SCRIPT_CODE = `function doPost(e) {
-  var data = JSON.parse(e.postData.contents);
-  var w = data.workout;
-  var unit = data.unit || 'lbs';
-  var result = { ok: true, sheet: false, doc: false };
-
-  if (data.sheetUrl) {
-    var ss = SpreadsheetApp.openByUrl(data.sheetUrl);
-    var sh = ss.getSheets()[0];
-    if (sh.getLastRow() === 0) {
-      sh.appendRow(['Date','Exercise','Set','Weight (' + unit + ')','Reps','Tags','Notes','Volume']);
-      sh.getRange(1, 1, 1, 8).setFontWeight('bold');
-    }
-    var rows = [];
-    w.exercises.forEach(function(ex) {
-      ex.sets.forEach(function(s, i) {
-        var vol = (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
-        rows.push([w.date, ex.name, i + 1, s.weight, s.reps, s.tags || '',
-                   i === 0 ? (ex.notes || '') : '', vol]);
-      });
-    });
-    if (rows.length) {
-      sh.getRange(sh.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
-    }
-    result.sheet = true;
-  }
-
-  if (data.docUrl) {
-    var doc = DocumentApp.openByUrl(data.docUrl);
-    var body = doc.getBody();
-    var h = body.appendParagraph('Workout \\u2014 ' + w.dateLong + (w.duration ? ' (' + w.duration + ')' : ''));
-    h.setHeading(DocumentApp.ParagraphHeading.HEADING2);
-    w.exercises.forEach(function(ex) {
-      body.appendParagraph(ex.name).setHeading(DocumentApp.ParagraphHeading.HEADING3);
-      ex.sets.forEach(function(s, i) {
-        var line = 'Set ' + (i + 1) + ': ' + s.weight + unit + ' \\u00d7 ' + s.reps;
-        if (s.tags) line += '  [' + s.tags + ']';
-        body.appendListItem(line).setGlyphType(DocumentApp.GlyphType.BULLET);
-      });
-      if (ex.notes) {
-        var n = body.appendParagraph('\\u201C' + ex.notes + '\\u201D');
-        n.setItalic(true);
-      }
-    });
-    doc.saveAndClose();
-    result.doc = true;
-  }
-
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
-}`;
 
 /* ================= state ================= */
 const store = {
@@ -830,10 +723,6 @@ function renderHome() {
     document.getElementById('start-sub').textContent = 'Exercise 1 · empty log';
     document.getElementById('home-discard').style.display = 'none';
   }
-
-  const s = store.settings;
-  const configured = s.scriptUrl && (s.sheetUrl || s.docUrl);
-  document.getElementById('home-sync-hint').style.display = configured ? 'none' : 'flex';
 
   // last workout
   const hist = store.history;
@@ -1275,54 +1164,8 @@ function renderSummary() {
     </div>`).join('');
 
   const st = document.getElementById('sync-status');
-  st.className = ''; st.textContent = '';
-  const s = store.settings;
-  const configured = s.scriptUrl && (s.sheetUrl || s.docUrl);
-  document.getElementById('sync-btn').style.display = configured ? 'block' : 'none';
-  if (!configured) {
-    st.className = 'err';
-    st.innerHTML = 'Google sync isn’t set up yet — this workout is saved on this device. Configure it in <b>Settings</b> (⚙️ on the home screen), then use <b>Copy formatted text</b> to paste this one manually.';
-  }
-}
-
-async function syncWorkout() {
-  const s = store.settings;
-  const st = document.getElementById('sync-status');
-  const btn = document.getElementById('sync-btn');
-  st.className = 'busy'; st.textContent = 'Syncing to Google…';
-  btn.disabled = true;
-  try {
-    const payload = {
-      sheetUrl: s.sheetUrl || '', docUrl: s.docUrl || '', unit: unit(),
-      workout: {
-        date: finishedWorkout.dateISO,
-        dateLong: fmtLong(finishedWorkout.dateISO),
-        duration: finishedWorkout.duration,
-        exercises: finishedWorkout.exercises.map(ex => ({
-          name: ex.name, notes: ex.notes || '',
-          sets: ex.sets.map(x => ({ weight: x.weight, reps: x.reps, tags: tagsString(x) }))
-        }))
-      }
-    };
-    const res = await fetch(s.scriptUrl, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const out = await res.json().catch(() => ({ ok: true }));
-    if (out && out.ok === false) throw new Error(out.error || 'Script reported an error');
-    st.className = 'ok';
-    st.textContent = '✓ Synced! ' + [out.sheet ? 'Sheet updated' : null, out.doc ? 'Doc updated' : null].filter(Boolean).join(' · ');
-    finishedWorkout.synced = true;
-    const hist = store.history;
-    const idx = hist.findIndex(h => h.startedAt === finishedWorkout.startedAt);
-    if (idx > -1) { hist[idx].synced = true; store.history = hist; }
-    btn.style.display = 'none';
-  } catch (err) {
-    st.className = 'err';
-    st.innerHTML = 'Sync failed: ' + escapeHtml(err.message) + '.<br>The workout is safe on this device — check your Settings URLs and try again, or use Copy formatted text.';
-    btn.disabled = false;
-  }
+  if (sbUser) { st.className = 'ok'; st.textContent = '✓ Saved to your cloud account'; }
+  else { st.className = ''; st.textContent = ''; }
 }
 
 function formatWorkoutText(w) {
@@ -1379,14 +1222,10 @@ function renderSettings() {
   document.getElementById('cfg-name').value = s.name || '';
   document.getElementById('cfg-bw').value = s.bodyweight || '';
   document.getElementById('cfg-height').value = s.height || '';
-  document.getElementById('cfg-script').value = s.scriptUrl || '';
-  document.getElementById('cfg-sheet').value = s.sheetUrl || '';
-  document.getElementById('cfg-doc').value = s.docUrl || '';
   document.getElementById('cfg-sb-url').value = s.sbUrl || '';
   document.getElementById('cfg-sb-key').value = s.sbKey || '';
   renderBwTrend();
   renderMaxLifts();
-  updateSyncStatus();
   updateCloudUI();
 }
 
@@ -1479,17 +1318,6 @@ function heaviestSet(name) {
   return best;
 }
 
-function updateSyncStatus() {
-  const doc = document.getElementById('cfg-doc').value.trim();
-  const sheet = document.getElementById('cfg-sheet').value.trim();
-  const ds = document.getElementById('doc-status');
-  const ss = document.getElementById('sheet-status');
-  ds.className = 'status ' + (doc ? 'on' : 'off');
-  ds.innerHTML = doc ? '<span class="dot"></span> Connected' : 'Paste URL';
-  ss.className = 'status ' + (sheet ? 'on' : 'off');
-  ss.innerHTML = sheet ? '<span class="dot"></span> Connected' : 'Paste URL';
-}
-
 function saveSettings() {
   const s = store.settings;
   s.name = document.getElementById('cfg-name').value.trim();
@@ -1507,30 +1335,13 @@ function saveSettings() {
   } else {
     s.bodyweight = '';
   }
-  s.scriptUrl = document.getElementById('cfg-script').value.trim();
-  s.sheetUrl = document.getElementById('cfg-sheet').value.trim();
-  s.docUrl = document.getElementById('cfg-doc').value.trim();
   s.sbUrl = document.getElementById('cfg-sb-url').value.trim().replace(/\/+$/, '');
   s.sbKey = document.getElementById('cfg-sb-key').value.trim();
-  if (s.scriptUrl && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(s.scriptUrl)) {
-    toast('Bridge URL should end in /exec'); return;
-  }
   store.settings = s;
   sbInit();
   syncPush();
   toast('Settings saved ✓');
   goHome();
-}
-
-/* ================= help modal ================= */
-function openHelp() {
-  document.getElementById('apps-script-code').textContent = APPS_SCRIPT_CODE;
-  document.getElementById('help-modal').classList.add('open');
-}
-function closeHelp() { document.getElementById('help-modal').classList.remove('open'); }
-function copyScript() {
-  navigator.clipboard.writeText(APPS_SCRIPT_CODE)
-    .then(() => toast('Script copied ✓')).catch(() => toast('Copy failed'));
 }
 
 /* ================= cloud (Supabase) ================= */
