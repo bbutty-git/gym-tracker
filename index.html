@@ -550,17 +550,18 @@
   <div class="screen" id="screen-summary">
     <div class="page-head">
       <div>
-        <h1>Review workout 💪</h1>
+        <h1 id="summary-title">Review workout 💪</h1>
         <div class="sub" id="summary-date"></div>
       </div>
       <button class="icon-btn" onclick="goHome()" title="Home">🏠</button>
     </div>
+    <div id="summary-meta-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
     <div class="summary-stats" id="summary-stats"></div>
-    <div class="maxlift-hint" style="padding:0 2px;">Tap any weight, reps, or tag to edit before recording. Tap a set number to remove it.</div>
+    <div class="maxlift-hint" style="padding:0 2px;">Tap any weight, reps, or tag to edit. Tap a set number to remove it.</div>
     <div id="summary-cards" style="display:flex;flex-direction:column;gap:10px;"></div>
     <button class="btn-outline" onclick="copyFormatted()">Copy formatted text</button>
     <div class="spacer"></div>
-    <button class="btn-primary" onclick="recordWorkout()">Record Workout</button>
+    <button class="btn-primary" id="record-btn" onclick="recordWorkout()">Record Workout</button>
   </div>
 
   <!-- ============ HISTORY ============ -->
@@ -725,6 +726,24 @@
   </div>
 </div>
 
+<!-- ============ BODY PARTS PICKER (modal) ============ -->
+<div class="modal-backdrop confirm-backdrop" id="bp-modal" onclick="if(event.target===this)closeBpModal()">
+  <div class="confirm-card">
+    <div class="section-label">Body parts</div>
+    <div id="bp-modal-pills" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 14px;"></div>
+    <button class="btn-primary" onclick="closeBpModal()">Done</button>
+  </div>
+</div>
+
+<!-- ============ MISSING INFO PROMPT ============ -->
+<div class="modal-backdrop confirm-backdrop" id="missing-modal" onclick="if(event.target===this)closeMissing()">
+  <div class="confirm-card">
+    <div class="section-label">Before you save…</div>
+    <div id="missing-options" style="display:flex;flex-direction:column;gap:8px;margin:12px 0 10px;"></div>
+    <button class="btn-outline" onclick="closeMissing(); recordWorkout(true)">Save anyway</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -825,14 +844,21 @@ const store = {
   }
 })();
 
-let workout = null;         // active workout object
+let workout = null;         // active workout object (or a history workout while editing it)
 let finishedWorkout = null; // shown on summary
 let homeDateISO = todayISO();
+let editingHistoryIdx = null; // non-null while the review screen is editing a past workout
+
+// while editing history, the workout global must NOT overwrite the real in-progress draft
+function persistDraft() { if (editingHistoryIdx === null) store.active = workout; }
 
 function unit() { return store.settings.unit || 'lbs'; }
 
 /* ================= navigation ================= */
 function showScreen(name) {
+  if (name !== 'summary' && editingHistoryIdx !== null) {
+    editingHistoryIdx = null; workout = null; editingKey = null; // leaving = discard unsaved history edits
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   window.scrollTo(0, 0);
@@ -1052,7 +1078,7 @@ function openTypeMenu(e) {
     const d = document.createElement('div');
     d.className = 'mi' + (workout.type === t ? ' on' : '');
     d.innerHTML = escapeHtml(t) + (workout.type === t ? '<span class="tick">✓</span>' : '');
-    d.onclick = ev => { ev.stopPropagation(); workout.type = t; store.active = workout; closeChipMenu(); renderWorkoutMeta(); };
+    d.onclick = ev => { ev.stopPropagation(); workout.type = t; workout.typeChosen = true; persistDraft(); closeChipMenu(); closeMissing(); refreshMetaDisplays(); };
     m.appendChild(d);
   });
   document.body.appendChild(m);
@@ -1096,9 +1122,27 @@ function toggleBodyPart(e, bp) {
   workout.bodyParts = workout.bodyParts || [];
   const i = workout.bodyParts.indexOf(bp);
   if (i > -1) workout.bodyParts.splice(i, 1); else workout.bodyParts.push(bp);
-  store.active = workout;
-  renderBodyPartPills();
-  renderWorkoutMeta();
+  persistDraft();
+  if (document.getElementById('bp-modal').classList.contains('open')) renderBpModalPills();
+  else renderBodyPartPills();
+  refreshMetaDisplays();
+}
+
+// re-render wherever type/body-parts are shown (log selectors or review chips)
+function refreshMetaDisplays() {
+  if (document.getElementById('screen-log').classList.contains('active')) renderWorkoutMeta();
+  if (document.getElementById('screen-summary').classList.contains('active')) renderSummary();
+}
+
+/* body-parts picker as a modal — used on the review/edit screen */
+function openBpModal() { renderBpModalPills(); document.getElementById('bp-modal').classList.add('open'); }
+function closeBpModal() { document.getElementById('bp-modal').classList.remove('open'); refreshMetaDisplays(); }
+function renderBpModalPills() {
+  const sel = (workout && workout.bodyParts) || [];
+  document.getElementById('bp-modal-pills').innerHTML = BODY_PARTS.map(bp => {
+    const on = sel.includes(bp);
+    return `<button class="bp-pill ${on ? 'on' : ''}" onclick="toggleBodyPart(event, '${bp}')">${on ? '✓ ' : ''}${bp}</button>`;
+  }).join('');
 }
 function renderLogDate() {
   document.getElementById('log-date-label').textContent = fmtLong(workout.dateISO);
@@ -1179,7 +1223,7 @@ function saveEditSet() {
   ctx.set.reps = reps.trim();
   ctx.set.weight = weight.trim();
   editingKey = null;
-  store.active = workout;
+  persistDraft();
   refreshEditors();
 }
 function refreshEditors() {
@@ -1221,7 +1265,7 @@ function askDeleteSet(key) {
     // on the review screen, an exercise with no sets left disappears
     if (ctx.exIdx !== undefined && !ctx.sets.length) workout.exercises.splice(ctx.exIdx, 1);
     editingKey = null;
-    store.active = workout;
+    persistDraft();
     refreshEditors();
   });
 }
@@ -1276,10 +1320,31 @@ function completeWorkout() {
   showScreen('summary');
 }
 
-function recordWorkout() {
+function recordWorkout(force) {
   if (!workout || !workout.exercises.length) { toast('Nothing to record'); return; }
   if (editingKey) saveEditSet();
+
+  if (!force) {
+    const missBp = !(workout.bodyParts && workout.bodyParts.length);
+    const missType = !workout.typeChosen;
+    if (missBp || missType) { openMissing(missBp, missType); return; }
+  }
+
   workout.synced = false;
+  workout.editedAt = Date.now();   // newest copy wins when devices merge
+
+  if (editingHistoryIdx !== null) {
+    const hist = store.history;
+    hist[editingHistoryIdx] = workout;
+    store.history = hist;
+    editingHistoryIdx = null;
+    workout = null;
+    syncPush();
+    showScreen('history');
+    toast('Workout updated ✓');
+    return;
+  }
+
   finishedWorkout = workout;
   const hist = store.history;
   hist.unshift(workout);
@@ -1290,6 +1355,26 @@ function recordWorkout() {
   goHome();
   toast('Workout recorded ✓');
 }
+
+function editHistoryWorkout(idx) {
+  const w = store.history[idx];   // store.history getter returns a detached copy
+  if (!w) return;
+  workout = w;
+  editingHistoryIdx = idx;
+  editingKey = null;
+  renderSummary();
+  showScreen('summary');
+}
+
+/* ---------- missing-info prompt on save ---------- */
+function openMissing(missBp, missType) {
+  const rows = [];
+  if (missBp) rows.push(`<button class="brand-opt" onclick="closeMissing(); openBpModal()">➕ Click here to add body parts</button>`);
+  if (missType) rows.push(`<button class="brand-opt" onclick="openTypeMenu(event)">➕ Click here to select workout type</button>`);
+  document.getElementById('missing-options').innerHTML = rows.join('');
+  document.getElementById('missing-modal').classList.add('open');
+}
+function closeMissing() { document.getElementById('missing-modal').classList.remove('open'); }
 
 /* ---------- chip dropdown menus ---------- */
 let chipMenuEl = null;
@@ -1348,7 +1433,7 @@ function applyChip(key, kind, v) {
   } else {
     s.extra = v;
   }
-  store.active = workout;
+  persistDraft();
   closeChipMenu();
   refreshEditors();
 }
@@ -1539,7 +1624,15 @@ function renderSummary() {
   const w = workout;
   if (!w) return;
   const u = unit();
-  document.getElementById('summary-date').textContent = fmtLong(w.dateISO) + ' · ' + (w.duration || '') + (workoutMetaStr(w) ? ' · ' + workoutMetaStr(w) : '');
+  const editing = editingHistoryIdx !== null;
+  document.getElementById('summary-title').textContent = editing ? 'Edit workout ✏️' : 'Review workout 💪';
+  document.getElementById('record-btn').textContent = editing ? 'Save Changes' : 'Record Workout';
+  document.getElementById('summary-date').textContent = fmtLong(w.dateISO) + (w.duration ? ' · ' + w.duration : '');
+
+  const bp = w.bodyParts || [];
+  document.getElementById('summary-meta-chips').innerHTML = `
+    <button class="chip ${LIGHT_TYPES.includes(w.type) ? 'type-warmup' : 'type-working'}" style="font-size:11px;padding:7px 12px;" onclick="openTypeMenu(event)">${escapeHtml(w.type || 'Performance')} ▾</button>
+    <button class="chip ${bp.length ? 'max-on' : ''}" style="font-size:11px;padding:7px 12px;" onclick="openBpModal()">${bp.length ? escapeHtml(bp.join(', ')) : 'Add body parts'} ▾</button>`;
 
   const totalSets = w.exercises.reduce((n, ex) => n + ex.sets.length, 0);
   const volume = w.exercises.reduce((v, ex) =>
@@ -1600,6 +1693,7 @@ function renderHistory() {
         <div class="d">${escapeHtml(fmtMed(w))}</div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span class="badge ${w.synced ? 'synced' : 'local'}">${w.synced ? '✓ Synced' : 'On device'}</span>
+          <button class="mini-del" onclick="editHistoryWorkout(${wi})" title="Edit workout">✏️</button>
           <button class="mini-del" onclick="askDeleteWorkout(${wi})" title="Delete workout">🗑</button>
         </div>
       </div>
@@ -1859,13 +1953,15 @@ function mergeRemote(remote) {
   const s = store.settings;
   // tombstones: any workout deleted on any device stays deleted after a merge
   const del = new Set([...(s.deletedWorkouts || []), ...(Array.isArray(remote.deleted) ? remote.deleted : [])]);
-  const seen = {}; const merged = [];
+  const pick = {};
   [...remoteHist, ...local].forEach(w => {
     if (!w) return;
     const k = workoutKey(w);
-    if (del.has(k) || seen[k]) return;
-    seen[k] = 1; merged.push(w);
+    if (del.has(k)) return;
+    // same workout on both sides: the most recently edited copy wins
+    if (!pick[k] || (w.editedAt || 0) > (pick[k].editedAt || 0)) pick[k] = w;
   });
+  const merged = Object.values(pick);
   merged.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
   store.history = merged.slice(0, 200);
   s.deletedWorkouts = [...del].slice(-500);
