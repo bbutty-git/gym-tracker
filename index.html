@@ -778,7 +778,7 @@ const MACHINE_NATURE = ["Leg Press","Single Leg Press","Hack Squat","Belt Squat"
   "Seated Leg Curl","Lying Leg Curl","Standing Leg Curl","Seated Calf Raise","Hip Abduction","Hip Adduction","Pec Deck"];
 
 const SET_TYPES = { working: 'Working set', warmup: 'Warm up set' };
-const EXTRAS = { finisher: 'Finisher', drop: 'Drop Sets', restpause: 'Rest/Pause' };
+const EXTRAS = { assisted: 'Assisted Reps', drop: 'Drop Sets', restpause: 'Rest/Pause', half: 'Half Reps' };
 const WORKOUT_TYPES = ['Performance', 'Hypertrophy', 'Strength', 'Endurance', 'Deload', 'Recovery'];
 const LIGHT_TYPES = ['Deload', 'Recovery'];       // shown in amber
 const BODY_PARTS = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs', 'Glutes', 'Core'];
@@ -808,10 +808,11 @@ const store = {
 
   function normSet(x) {
     if (x.extra === undefined) {
-      x.extra = x.tech || (x.type === 'finisher' ? 'finisher' : null);
-      if (x.type === 'finisher' || !SET_TYPES[x.type]) x.type = x.type === 'warmup' ? 'warmup' : 'working';
+      x.extra = x.tech || null;
+      if (!SET_TYPES[x.type]) x.type = x.type === 'warmup' ? 'warmup' : 'working';
       delete x.tech;
     }
+    if (x.extra && !EXTRAS[x.extra]) x.extra = null;   // retired tags (e.g. 'finisher') -> No Tag
   }
   const hist = store.history;
   hist.forEach(w => w.exercises.forEach(ex => ex.sets.forEach(normSet)));
@@ -1107,7 +1108,7 @@ const KIND_UI = {
 function chipButtons(s, ref) {
   const k = KIND_UI[kindOf(s)];
   return `<button class="chip ${k.cls}" onclick="openChipMenu(event, ${ref}, 'kind')">${k.flame ? FLAME + ' ' : ''}${k.label} ▾</button>
-    <button class="chip ${s.extra ? 'extra-on' : ''}" onclick="openChipMenu(event, ${ref}, 'extra')">${s.extra ? EXTRAS[s.extra] : 'Finisher'} ▾</button>`;
+    <button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, ${ref}, 'extra')">${EXTRAS[s.extra] || 'No Tag'} ▾</button>`;
 }
 
 function renderSetRows() {
@@ -1228,7 +1229,7 @@ function openChipMenu(e, i, kind) {
     ];
   } else {
     options = [
-      { v: null, label: 'No tag', on: !s.extra },
+      { v: null, label: 'No Tag', on: !EXTRAS[s.extra] },
       ...Object.keys(EXTRAS).map(k => ({ v: k, label: EXTRAS[k], on: s.extra === k }))
     ];
   }
@@ -1389,7 +1390,7 @@ function tagsString(s) {
   const t = [];
   if (s.type === 'warmup') t.push('Warm up');
   if (s.max) t.push('Max Set');
-  if (s.extra) t.push(EXTRAS[s.extra]);
+  if (EXTRAS[s.extra]) t.push(EXTRAS[s.extra]);
   return t.join(' · ');
 }
 // "Deload · Chest, Triceps" — the workout's type + body parts, for display/export
@@ -1398,7 +1399,7 @@ function workoutMetaStr(w) {
     .filter(Boolean).join(' · ');
 }
 function setChipHtml(s) {
-  const tech = s.extra ? ` <span class="tech-tag">${EXTRAS[s.extra].toUpperCase()}</span>` : '';
+  const tech = EXTRAS[s.extra] ? ` <span class="tech-tag">${EXTRAS[s.extra].toUpperCase()}</span>` : '';
   if (s.max) return `<div class="hist-chip max">${escapeHtml(String(s.weight))} × ${escapeHtml(String(s.reps))} ${FLAME}</div>`;
   return `<div class="hist-chip">${escapeHtml(String(s.weight))} × ${escapeHtml(String(s.reps))}${tech}</div>`;
 }
