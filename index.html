@@ -134,6 +134,18 @@
     width: 100%; max-width: 360px; padding: 20px;
   }
   .confirm-card #confirm-msg { font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--text); }
+  .brand-opt {
+    display: block; width: 100%; cursor: pointer; font-family: inherit;
+    background: var(--pink-soft); border: 1px solid var(--pink-line); color: var(--pink);
+    border-radius: 12px; padding: 13px; text-align: center; font-size: 13px; font-weight: 700;
+  }
+  .brand-opt:active { background: rgba(247,37,133,.3); }
+  .brand-opt.none { background: transparent; border-color: rgba(255,255,255,.15); color: rgba(255,255,255,.7); font-weight: 600; }
+  .ml-sugg-row {
+    padding: 12px 14px; font-size: 12.5px; font-weight: 600; color: var(--pink);
+    cursor: pointer; border-top: 1px solid rgba(255,255,255,.06);
+  }
+  .ml-sugg-row:active { background: rgba(247,37,133,.08); }
   .last-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
   .last-card .lh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .last-card .lh .d { font-size: 14px; font-weight: 700; }
@@ -623,6 +635,15 @@
       </div>
 
       <div class="set-group">
+        <div class="gh">
+          <div class="section-label">Brands</div>
+          <div class="hint">for machine exercises</div>
+        </div>
+        <div class="card-list" id="brands-list"></div>
+        <div class="maxlift-hint" style="padding:0 2px;">When you pick a machine exercise mid-workout, you'll be asked which brand — each brand is tracked as its own exercise.</div>
+      </div>
+
+      <div class="set-group">
         <div class="section-label">Export data</div>
         <div class="card-list">
           <div class="sync-row">
@@ -695,20 +716,66 @@
   </div>
 </div>
 
+<!-- ============ MACHINE BRAND PICKER ============ -->
+<div class="modal-backdrop confirm-backdrop" id="brand-modal" onclick="if(event.target===this)closeBrandPicker()">
+  <div class="confirm-card">
+    <div class="section-label">Which machine?</div>
+    <div id="brand-ex-name" style="font-size:16px;font-weight:800;margin:4px 0 14px;"></div>
+    <div id="brand-options" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 /* ================= constants ================= */
 const PRESET_EXERCISES = [
-  "Bench Press","Incline Bench Press","Incline Dumbbell Press","Dumbbell Bench Press","Overhead Press",
-  "Dumbbell Shoulder Press","Lateral Raise","Front Raise","Rear Delt Fly","Push Up","Dip","Chest Fly",
-  "Cable Crossover","Squat","Front Squat","Goblet Squat","Leg Press","Leg Extension","Leg Curl",
-  "Romanian Deadlift","Deadlift","Sumo Deadlift","Hip Thrust","Lunge","Bulgarian Split Squat","Calf Raise",
-  "Pull Up","Chin Up","Lat Pulldown","Seated Cable Row","Barbell Row","Dumbbell Row","T-Bar Row",
-  "Face Pull","Shrug","Bicep Curl","Hammer Curl","Preacher Curl","Cable Curl","Incline Dumbbell Fly","Incline DB Curl",
-  "Tricep Pushdown","Overhead Tricep Extension","Skull Crusher","Close Grip Bench Press",
-  "Plank","Crunch","Hanging Leg Raise","Russian Twist","Ab Wheel Rollout","Farmer's Carry"
+  // Chest
+  "Bench Press","Dumbbell Bench Press","Machine Chest Press","Smith Machine Bench Press",
+  "Incline Bench Press","Incline Dumbbell Press","Incline Machine Chest Press","Smith Machine Incline Press",
+  "Decline Bench Press","Decline Dumbbell Press","Decline Machine Chest Press",
+  "Dumbbell Chest Fly","Incline Dumbbell Fly","Cable Chest Fly","Machine Chest Fly","Cable Crossover",
+  "Push Up","Dip","Machine Dip",
+  // Back
+  "Deadlift","Sumo Deadlift","Trap Bar Deadlift","Rack Pull","Romanian Deadlift","Dumbbell Romanian Deadlift",
+  "Barbell Row","Dumbbell Row","Cable Row","Seated Cable Row","Machine Row","T-Bar Row","Chest Supported Row","Smith Machine Row",
+  "Pull Up","Chin Up","Assisted Pull Up Machine","Lat Pulldown","Machine Lat Pulldown","Straight Arm Pulldown",
+  "Cable Pullover","Dumbbell Pullover","Machine Pullover","Back Extension","Good Morning",
+  "Barbell Shrug","Dumbbell Shrug","Cable Shrug","Machine Shrug",
+  // Shoulders
+  "Overhead Press","Dumbbell Shoulder Press","Machine Shoulder Press","Smith Machine Shoulder Press","Arnold Press",
+  "Dumbbell Lateral Raise","Cable Lateral Raise","Machine Lateral Raise",
+  "Dumbbell Front Raise","Cable Front Raise","Barbell Front Raise",
+  "Dumbbell Rear Delt Fly","Cable Rear Delt Fly","Machine Rear Delt Fly","Face Pull",
+  "Barbell Upright Row","Dumbbell Upright Row","Cable Upright Row",
+  // Biceps
+  "Barbell Curl","EZ Bar Curl","Dumbbell Curl","Cable Curl","Machine Curl",
+  "Hammer Curl","Cable Hammer Curl","Incline Dumbbell Curl","Concentration Curl","Spider Curl",
+  "Preacher Curl","Dumbbell Preacher Curl","Machine Preacher Curl",
+  // Triceps
+  "Tricep Pushdown","Rope Pushdown","Machine Tricep Extension",
+  "Overhead Tricep Extension","Dumbbell Overhead Tricep Extension","Cable Overhead Tricep Extension",
+  "Skull Crusher","Dumbbell Skull Crusher","Close Grip Bench Press","Tricep Dip","Bench Dip",
+  "Tricep Kickback","Cable Tricep Kickback",
+  // Legs
+  "Squat","Front Squat","Goblet Squat","Dumbbell Squat","Smith Machine Squat","Hack Squat","Belt Squat",
+  "Leg Press","Single Leg Press","Bulgarian Split Squat","Dumbbell Bulgarian Split Squat","Smith Machine Bulgarian Split Squat",
+  "Lunge","Dumbbell Lunge","Barbell Lunge","Walking Lunge","Dumbbell Walking Lunge","Reverse Lunge","Dumbbell Reverse Lunge",
+  "Step Up","Dumbbell Step Up","Leg Extension","Leg Curl","Seated Leg Curl","Lying Leg Curl","Standing Leg Curl",
+  "Standing Calf Raise","Seated Calf Raise","Machine Calf Raise","Smith Machine Calf Raise","Leg Press Calf Raise",
+  // Glutes
+  "Hip Thrust","Barbell Hip Thrust","Machine Hip Thrust","Dumbbell Hip Thrust","Smith Machine Hip Thrust",
+  "Glute Bridge","Cable Glute Kickback","Machine Glute Kickback","Hip Abduction Machine","Hip Adduction Machine",
+  "Kettlebell Swing","Sumo Squat",
+  // Core
+  "Plank","Side Plank","Crunch","Cable Crunch","Machine Crunch","Sit Up","Decline Sit Up",
+  "Hanging Leg Raise","Hanging Knee Raise","Captain's Chair Leg Raise","Russian Twist","Ab Wheel Rollout",
+  "Cable Woodchopper","Dead Bug","Mountain Climbers","Farmer's Carry"
 ];
+
+// machine-by-nature exercises (plate/stack machines without "Machine" in the name) — trigger the brand picker
+const MACHINE_NATURE = ["Leg Press","Single Leg Press","Hack Squat","Belt Squat","Leg Extension","Leg Curl",
+  "Seated Leg Curl","Lying Leg Curl","Standing Leg Curl","Seated Calf Raise","Hip Abduction","Hip Adduction","Pec Deck"];
 
 const SET_TYPES = { working: 'Working set', warmup: 'Warm up set' };
 const EXTRAS = { finisher: 'Finisher', drop: 'Drop Sets', restpause: 'Rest/Pause' };
@@ -735,6 +802,7 @@ const store = {
   if (s.unit === 'lb') { s.unit = 'lbs'; dirty = true; }
   if (!s.unit) { s.unit = 'lbs'; dirty = true; }
   if (!s.maxLifts) { s.maxLifts = []; dirty = true; }
+  if (!s.brands) { s.brands = ['Hammer Strength', 'Cybex']; dirty = true; }
   if (!s.bodyweightLog) { s.bodyweightLog = []; dirty = true; }
   if (dirty) store.settings = s;
 
@@ -1259,6 +1327,15 @@ function renderAutocomplete(query) {
 }
 
 function pickExercise(name) {
+  // machine exercises route through the brand picker first (unless already branded)
+  if (isMachineExercise(name) && !hasBrandSuffix(name) && (store.settings.brands || []).length) {
+    document.getElementById('ac-list').classList.remove('open');
+    openBrandPicker(name);
+    return;
+  }
+  finishPickExercise(name);
+}
+function finishPickExercise(name) {
   const input = document.getElementById('ex-name');
   input.value = name;
   document.getElementById('ex-clear').classList.add('show');
@@ -1266,6 +1343,36 @@ function pickExercise(name) {
   workout.current.name = name;
   store.active = workout;
   document.getElementById('in-reps').focus();
+}
+
+/* ---------- machine brand picker ---------- */
+function isMachineExercise(name) {
+  const n = name.toLowerCase();
+  return /machine/.test(n) || MACHINE_NATURE.some(m => n.includes(m.toLowerCase()));
+}
+// brands are appended as "Leg Press (Hammer Strength)" — one exercise per brand
+function hasBrandSuffix(name) { return /\([^)]+\)\s*$/.test(name); }
+
+let brandPickerFor = null;
+function openBrandPicker(name) {
+  brandPickerFor = name;
+  document.getElementById('brand-ex-name').textContent = name;
+  const brands = store.settings.brands || [];
+  document.getElementById('brand-options').innerHTML =
+    brands.map(b => `<button class="brand-opt" onclick="chooseBrand(this.dataset.b)" data-b="${escapeAttr(b)}">${escapeHtml(b)}</button>`).join('') +
+    `<button class="brand-opt none" onclick="chooseBrand('')">No brand</button>`;
+  document.getElementById('brand-modal').classList.add('open');
+}
+function chooseBrand(brand) {
+  const base = brandPickerFor;
+  closeBrandPicker(true);
+  finishPickExercise(brand ? base + ' (' + brand + ')' : base);
+}
+function closeBrandPicker(silent) {
+  document.getElementById('brand-modal').classList.remove('open');
+  const base = brandPickerFor;
+  brandPickerFor = null;
+  if (!silent && base) finishPickExercise(base); // dismissing = no brand
 }
 function clearExName() {
   const input = document.getElementById('ex-name');
@@ -1434,6 +1541,7 @@ function renderSettings() {
   document.getElementById('cfg-sb-key').value = s.sbKey || '';
   renderBwTrend();
   renderMaxLifts();
+  renderBrands();
   updateCloudUI();
 }
 
@@ -1478,40 +1586,91 @@ function renderMaxLifts() {
   if (lifts.length < 5) {
     const left = 5 - lifts.length;
     html += `<div class="maxlift-add">
-      <input id="maxlift-add" list="exlist" placeholder="Type an exercise… (${left} slot${left !== 1 ? 's' : ''} left)"
+      <input id="maxlift-add" placeholder="Type an exercise… (${left} slot${left !== 1 ? 's' : ''} left)" autocomplete="off"
+        oninput="renderMaxLiftSugg(this.value)"
         onkeydown="if(event.key==='Enter'){event.preventDefault();addMaxLiftFromInput();}">
       <button class="next-set-btn" onclick="addMaxLiftFromInput()">Add</button>
-    </div>`;
+    </div>
+    <div id="ml-sugg"></div>`;
   } else {
     html += `<div class="maxlift-hint">5 of 5 — remove one to add another.</div>`;
   }
   el.innerHTML = html;
-
-  // datalist of known exercises
-  let dl = document.getElementById('exlist');
-  if (!dl) { dl = document.createElement('datalist'); dl.id = 'exlist'; document.body.appendChild(dl); }
-  dl.innerHTML = knownExerciseNames().all.map(n => `<option value="${escapeAttr(n)}"></option>`).join('');
 }
 
-function addMaxLiftFromInput() {
-  const input = document.getElementById('maxlift-add');
-  if (!input) return;
-  const name = input.value.trim();
+// inline suggestions under the input (custom — native datalist is unreliable on mobile)
+function renderMaxLiftSugg(query) {
+  const box = document.getElementById('ml-sugg');
+  if (!box) return;
+  const q = (query || '').trim().toLowerCase();
+  if (!q) { box.innerHTML = ''; return; }
+  const taken = (store.settings.maxLifts || []).map(n => n.toLowerCase());
+  const matches = knownExerciseNames().all
+    .filter(n => n.toLowerCase().includes(q) && !taken.includes(n.toLowerCase()))
+    .slice(0, 4);
+  box.innerHTML = matches.map(n =>
+    `<div class="ml-sugg-row" onclick="addMaxLift(this.dataset.name)" data-name="${escapeAttr(n)}">+ ${escapeHtml(n)}</div>`
+  ).join('');
+}
+
+function addMaxLift(name) {
+  name = (name || '').trim();
   if (!name) return;
   const s = store.settings;
   s.maxLifts = s.maxLifts || [];
-  if (s.maxLifts.some(n => n.toLowerCase() === name.toLowerCase())) { toast('Already tracked'); input.value = ''; return; }
+  if (s.maxLifts.some(n => n.toLowerCase() === name.toLowerCase())) { toast('Already tracked'); return; }
   if (s.maxLifts.length >= 5) { toast('Max 5 lifts'); return; }
   s.maxLifts.push(name);
   store.settings = s;
   renderMaxLifts();
   syncPush();
+  toast(name + ' added ✓');
+}
+function addMaxLiftFromInput() {
+  const input = document.getElementById('maxlift-add');
+  if (input) addMaxLift(input.value);
 }
 function removeMaxLift(i) {
   const s = store.settings;
   s.maxLifts.splice(i, 1);
   store.settings = s;
   renderMaxLifts();
+  syncPush();
+}
+
+/* ---------- brands (machine manufacturers) ---------- */
+function renderBrands() {
+  const el = document.getElementById('brands-list');
+  const brands = store.settings.brands || [];
+  let html = brands.map((b, i) => `<div class="maxlift-row">
+    <div class="ml-name">${escapeHtml(b)}</div>
+    <div class="ml-rm" onclick="removeBrand(${i})" title="Remove">✕</div>
+  </div>`).join('');
+  html += `<div class="maxlift-add">
+    <input id="brand-add" placeholder="Add a brand… e.g. Life Fitness" autocomplete="off"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();addBrandFromInput();}">
+    <button class="next-set-btn" onclick="addBrandFromInput()">Add</button>
+  </div>`;
+  el.innerHTML = html;
+}
+function addBrandFromInput() {
+  const input = document.getElementById('brand-add');
+  const name = input ? input.value.trim() : '';
+  if (!name) return;
+  const s = store.settings;
+  s.brands = s.brands || [];
+  if (s.brands.some(b => b.toLowerCase() === name.toLowerCase())) { toast('Already added'); return; }
+  s.brands.push(name);
+  store.settings = s;
+  renderBrands();
+  syncPush();
+  toast(name + ' added ✓');
+}
+function removeBrand(i) {
+  const s = store.settings;
+  s.brands.splice(i, 1);
+  store.settings = s;
+  renderBrands();
   syncPush();
 }
 
@@ -1630,6 +1789,7 @@ function mergeRemote(remote) {
   if (Array.isArray(p.maxLifts) && p.maxLifts.length) s.maxLifts = p.maxLifts;
   if (Array.isArray(p.bodyweightLog) && p.bodyweightLog.length >= (s.bodyweightLog || []).length) s.bodyweightLog = p.bodyweightLog;
   if (p.deloadResetISO && (!s.deloadResetISO || p.deloadResetISO > s.deloadResetISO)) s.deloadResetISO = p.deloadResetISO; // later reset wins
+  if (Array.isArray(p.brands) && p.brands.length) s.brands = p.brands;
   store.settings = s;
 }
 
@@ -1664,7 +1824,7 @@ async function pushState() {
   const payload = {
     history: store.history,
     deleted: s.deletedWorkouts || [],
-    profile: { name: s.name || '', height: s.height || '', bodyweight: s.bodyweight || '', unit: s.unit || 'lbs', maxLifts: s.maxLifts || [], bodyweightLog: s.bodyweightLog || [], deloadResetISO: s.deloadResetISO || null }
+    profile: { name: s.name || '', height: s.height || '', bodyweight: s.bodyweight || '', unit: s.unit || 'lbs', maxLifts: s.maxLifts || [], bodyweightLog: s.bodyweightLog || [], deloadResetISO: s.deloadResetISO || null, brands: s.brands || [] }
   };
   try {
     const { error } = await sb.from('gym_state').upsert({ user_id: sbUser.id, data: payload, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
@@ -1848,6 +2008,7 @@ exNameInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
     const first = document.querySelector('#ac-list .ac-item');
     if (first && document.getElementById('ac-list').classList.contains('open')) pickExercise(first.dataset.name);
+    else if (e.target.value.trim()) pickExercise(e.target.value.trim());
     else { document.getElementById('ac-list').classList.remove('open'); document.getElementById('in-reps').focus(); }
     e.preventDefault();
   }
