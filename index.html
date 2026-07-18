@@ -550,17 +550,17 @@
   <div class="screen" id="screen-summary">
     <div class="page-head">
       <div>
-        <h1>Workout complete 💪</h1>
+        <h1>Review workout 💪</h1>
         <div class="sub" id="summary-date"></div>
       </div>
       <button class="icon-btn" onclick="goHome()" title="Home">🏠</button>
     </div>
     <div class="summary-stats" id="summary-stats"></div>
-    <div id="sync-status"></div>
-    <button class="btn-outline" onclick="copyFormatted()">Copy formatted text</button>
+    <div class="maxlift-hint" style="padding:0 2px;">Tap any weight, reps, or tag to edit before recording. Tap a set number to remove it.</div>
     <div id="summary-cards" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <button class="btn-outline" onclick="copyFormatted()">Copy formatted text</button>
     <div class="spacer"></div>
-    <button class="btn-outline" onclick="goHome()">Done</button>
+    <button class="btn-primary" onclick="recordWorkout()">Record Workout</button>
   </div>
 
   <!-- ============ HISTORY ============ -->
@@ -943,12 +943,39 @@ function askResetDeload() {
   });
 }
 
+// keyword → body part inference, used when a workout wasn't tagged with body parts
+const BP_KEYWORDS = [
+  ['Legs', ['squat', 'lunge', 'leg press', 'leg extension', 'leg curl', 'calf', 'step up', 'hack']],
+  ['Glutes', ['hip thrust', 'glute', 'hip abduction', 'hip adduction', 'kettlebell swing', 'sumo', 'good morning']],
+  ['Chest', ['bench press', 'chest', 'crossover', 'push up', 'dip']],
+  ['Back', ['row', 'deadlift', 'rack pull', 'pull up', 'chin up', 'pulldown', 'pullover', 'shrug', 'back extension']],
+  ['Shoulders', ['overhead press', 'shoulder press', 'arnold', 'lateral raise', 'front raise', 'rear delt', 'face pull', 'upright row']],
+  ['Biceps', ['curl']],
+  ['Triceps', ['pushdown', 'tricep', 'skull crusher', 'close grip', 'kickback', 'dip']],
+  ['Core', ['plank', 'crunch', 'sit up', 'leg raise', 'russian', 'ab wheel', 'woodchopper', 'dead bug', 'mountain climber', 'farmer']]
+];
+function inferBodyParts(w) {
+  const parts = new Set();
+  (w.exercises || []).forEach(ex => {
+    const n = ex.name.toLowerCase();
+    BP_KEYWORDS.forEach(([part, kws]) => {
+      if (part === 'Biceps' && n.includes('leg curl')) return;   // leg curl is legs, not biceps
+      if (part === 'Triceps' && n.includes('glute kickback')) return;
+      if (kws.some(k => n.includes(k))) parts.add(part);
+    });
+  });
+  return [...parts];
+}
+function effectiveBodyParts(w) {
+  return (w.bodyParts && w.bodyParts.length) ? w.bodyParts : inferBodyParts(w);
+}
+
 function renderBodyPartRecency() {
   const el = document.getElementById('bp-recency');
-  // most recent workout date per body part
+  // most recent workout date per body part (tagged, or inferred from exercise names)
   const last = {};
   store.history.forEach(w => {
-    (w.bodyParts || []).forEach(bp => {
+    effectiveBodyParts(w).forEach(bp => {
       if (!last[bp] || w.dateISO > last[bp]) last[bp] = w.dateISO;
     });
   });
@@ -1107,25 +1134,65 @@ const KIND_UI = {
 };
 function chipButtons(s, ref) {
   const k = KIND_UI[kindOf(s)];
-  return `<button class="chip ${k.cls}" onclick="openChipMenu(event, ${ref}, 'kind')">${k.flame ? FLAME + ' ' : ''}${k.label} ▾</button>
-    <button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, ${ref}, 'extra')">${EXTRAS[s.extra] || 'No Tag'} ▾</button>`;
+  return `<button class="chip ${k.cls}" onclick="openChipMenu(event, '${ref}', 'kind')">${k.flame ? FLAME + ' ' : ''}${k.label} ▾</button>
+    <button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, '${ref}', 'extra')">${EXTRAS[s.extra] || 'No Tag'} ▾</button>`;
+}
+
+// set addressing: 'pending' | 'c<i>' (current exercise) | 'x<e>_<i>' (completed exercise on review)
+function setCtx(key) {
+  if (key === 'pending') return { set: workout.current.pending, sets: workout.current.sets, pending: true };
+  if (key[0] === 'c') return { set: workout.current.sets[+key.slice(1)], sets: workout.current.sets };
+  const m = key.match(/^x(\d+)_(\d+)$/);
+  const ex = workout.exercises[+m[1]];
+  return { set: ex.sets[+m[2]], sets: ex.sets, exIdx: +m[1], setIdx: +m[2] };
+}
+
+let editingKey = null;
+// one row for a committed set — used on the log screen and the review screen
+function setRowHtml(s, key, num) {
+  const u = unit();
+  const vals = editingKey === key
+    ? `<input type="text" inputmode="numeric" id="edit-reps" value="${escapeAttr(String(s.reps))}" placeholder="Reps">
+       <input type="text" inputmode="decimal" id="edit-weight" value="${escapeAttr(String(s.weight))}" placeholder="Weight">
+       <button class="next-set-btn" onclick="saveEditSet()">✓ Save</button>`
+    : `<div class="reps-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.reps))} <span class="u">reps</span></div>
+       <div class="wt-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.weight))} <span class="u">${u}</span></div>`;
+  return `<div class="set-row ${s.max ? 'max' : ''}">
+    <div class="top">
+      <div class="set-num" onclick="askDeleteSet('${key}')" title="Tap to remove">${num}</div>
+      ${vals}
+    </div>
+    <div class="chip-row">${chipButtons(s, key)}</div>
+  </div>`;
+}
+
+function startEditSet(key) {
+  editingKey = key;
+  refreshEditors();
+  setTimeout(() => { const el = document.getElementById('edit-weight'); if (el) el.focus(); }, 50);
+}
+function saveEditSet() {
+  if (!editingKey) return;
+  const ctx = setCtx(editingKey);
+  const reps = (document.getElementById('edit-reps') || {}).value || '';
+  const weight = (document.getElementById('edit-weight') || {}).value || '';
+  ctx.set.reps = reps.trim();
+  ctx.set.weight = weight.trim();
+  editingKey = null;
+  store.active = workout;
+  refreshEditors();
+}
+function refreshEditors() {
+  if (document.getElementById('screen-summary').classList.contains('active')) renderSummary();
+  else renderSetRows();
 }
 
 function renderSetRows() {
   if (!workout || !workout.current) return;
   const el = document.getElementById('set-rows');
-  const u = unit();
-  el.innerHTML = workout.current.sets.map((s, i) => `
-    <div class="set-row ${s.max ? 'max' : ''}">
-      <div class="top">
-        <div class="set-num" onclick="deleteSet(${i})" title="Tap to remove">${i + 1}</div>
-        <div class="reps-val">${escapeHtml(String(s.reps))} <span class="u">reps</span></div>
-        <div class="wt-val">${escapeHtml(String(s.weight))} <span class="u">${u}</span></div>
-      </div>
-      <div class="chip-row">${chipButtons(s, i)}</div>
-    </div>`).join('');
+  el.innerHTML = workout.current.sets.map((s, i) => setRowHtml(s, 'c' + i, i + 1)).join('');
   document.getElementById('entry-num').textContent = workout.current.sets.length + 1;
-  document.getElementById('pending-chips').innerHTML = chipButtons(workout.current.pending, "'pending'");
+  document.getElementById('pending-chips').innerHTML = chipButtons(workout.current.pending, 'pending');
 }
 
 function logSet() {
@@ -1147,11 +1214,15 @@ function logSet() {
   document.getElementById('in-reps').focus();
 }
 
-function deleteSet(i) {
-  uiConfirm('Remove set ' + (i + 1) + '?', 'Remove', () => {
-    workout.current.sets.splice(i, 1);
+function askDeleteSet(key) {
+  uiConfirm('Remove this set?', 'Remove', () => {
+    const ctx = setCtx(key);
+    ctx.sets.splice(ctx.setIdx !== undefined ? ctx.setIdx : +key.slice(1), 1);
+    // on the review screen, an exercise with no sets left disappears
+    if (ctx.exIdx !== undefined && !ctx.sets.length) workout.exercises.splice(ctx.exIdx, 1);
+    editingKey = null;
     store.active = workout;
-    renderSetRows();
+    refreshEditors();
   });
 }
 
@@ -1184,36 +1255,46 @@ function nextExercise() {
   setTimeout(() => document.getElementById('ex-name').focus(), 60);
 }
 
+// "Complete workout" now opens an editable review — nothing is saved to history
+// until "Record Workout" is tapped. The workout stays active (resumable) meanwhile.
 function completeWorkout() {
   captureCurrent();
   const cur = workout.current;
-  if (cur.name && cur.sets.length) workout.exercises.push({ name: cur.name, notes: cur.notes, sets: cur.sets });
-  workout.current = null;
+  if (cur.name && cur.sets.length) {
+    workout.exercises.push({ name: cur.name, notes: cur.notes, sets: cur.sets });
+    workout.current = newCurrent();
+  }
   if (!workout.exercises.length) {
     toast('Nothing logged yet');
-    workout.current = newCurrent();
     return;
   }
   workout.endedAt = Date.now();
   workout.duration = formatDuration(workout.endedAt - workout.startedAt);
-  workout.synced = false;
+  store.active = workout;
+  editingKey = null;
+  renderSummary();
+  showScreen('summary');
+}
 
+function recordWorkout() {
+  if (!workout || !workout.exercises.length) { toast('Nothing to record'); return; }
+  if (editingKey) saveEditSet();
+  workout.synced = false;
   finishedWorkout = workout;
   const hist = store.history;
-  hist.unshift(finishedWorkout);
+  hist.unshift(workout);
   store.history = hist.slice(0, 200);
   workout = null;
   store.active = null;
   syncPush();
-
-  renderSummary();
-  showScreen('summary');
+  goHome();
+  toast('Workout recorded ✓');
 }
 
 /* ---------- chip dropdown menus ---------- */
 let chipMenuEl = null;
 function closeChipMenu() { if (chipMenuEl) { chipMenuEl.remove(); chipMenuEl = null; } }
-function chipTarget(i) { return i === 'pending' ? workout.current.pending : workout.current.sets[i]; }
+function chipTarget(key) { return setCtx(key).set; }
 
 function openChipMenu(e, i, kind) {
   e.stopPropagation();
@@ -1254,11 +1335,12 @@ function openChipMenu(e, i, kind) {
   chipMenuEl = m;
 }
 
-function applyChip(i, kind, v) {
-  const s = chipTarget(i);
+function applyChip(key, kind, v) {
+  const ctx = setCtx(key);
+  const s = ctx.set;
   if (kind === 'kind') {
     if (v === 'max') {
-      if (i !== 'pending') workout.current.sets.forEach(x => x.max = false); // one Max Set per exercise
+      if (!ctx.pending) ctx.sets.forEach(x => x.max = false); // one Max Set per exercise
       s.type = 'working'; s.max = true;
     } else {
       s.type = v; s.max = false;
@@ -1268,7 +1350,7 @@ function applyChip(i, kind, v) {
   }
   store.active = workout;
   closeChipMenu();
-  renderSetRows();
+  refreshEditors();
 }
 
 /* ---------- autocomplete ---------- */
@@ -1454,9 +1536,10 @@ function closePerf() { document.getElementById('perf-sheet').classList.remove('o
 
 /* ---------- summary + sync ---------- */
 function renderSummary() {
-  const w = finishedWorkout;
+  const w = workout;
+  if (!w) return;
   const u = unit();
-  document.getElementById('summary-date').textContent = fmtLong(w.dateISO) + ' · ' + w.duration + (workoutMetaStr(w) ? ' · ' + workoutMetaStr(w) : '');
+  document.getElementById('summary-date').textContent = fmtLong(w.dateISO) + ' · ' + (w.duration || '') + (workoutMetaStr(w) ? ' · ' + workoutMetaStr(w) : '');
 
   const totalSets = w.exercises.reduce((n, ex) => n + ex.sets.length, 0);
   const volume = w.exercises.reduce((v, ex) =>
@@ -1466,16 +1549,15 @@ function renderSummary() {
     <div class="stat"><div class="num">${totalSets}</div><div class="lbl">SETS</div></div>
     <div class="stat"><div class="num">${w.exercises.length}</div><div class="lbl">EXERCISES</div></div>`;
 
-  document.getElementById('summary-cards').innerHTML = w.exercises.map(ex => `
+  // fully editable: every set uses the same tap-to-edit row as the log screen
+  document.getElementById('summary-cards').innerHTML = w.exercises.map((ex, e) => `
     <div class="hist-card">
       <div class="hd"><div class="d">${escapeHtml(ex.name)}</div><div class="m">${ex.sets.length} set${ex.sets.length !== 1 ? 's' : ''}</div></div>
-      <div class="hist-chips">${ex.sets.map(setChipHtml).join('')}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+        ${ex.sets.map((s, i) => setRowHtml(s, 'x' + e + '_' + i, i + 1)).join('')}
+      </div>
       ${ex.notes ? `<div class="hist-note">“${escapeHtml(ex.notes)}”</div>` : ''}
     </div>`).join('');
-
-  const st = document.getElementById('sync-status');
-  if (sbUser) { st.className = 'ok'; st.textContent = '✓ Saved to your cloud account'; }
-  else { st.className = ''; st.textContent = ''; }
 }
 
 function formatWorkoutText(w) {
@@ -1495,7 +1577,9 @@ function formatWorkoutText(w) {
   return out.trim();
 }
 function copyFormatted() {
-  navigator.clipboard.writeText(formatWorkoutText(finishedWorkout))
+  const w = workout || finishedWorkout;
+  if (!w) { toast('Nothing to copy'); return; }
+  navigator.clipboard.writeText(formatWorkoutText(w))
     .then(() => toast('Copied to clipboard ✓')).catch(() => toast('Copy failed'));
 }
 
@@ -1918,6 +2002,7 @@ function refreshActiveScreen() {
   if (id === 'home') renderHome();
   else if (id === 'history') renderHistory();
   else if (id === 'settings') renderSettings();
+  else if (id === 'summary') renderSummary();
 }
 
 /* ================= export ================= */
@@ -2028,6 +2113,13 @@ applyCfgFromHash();
 renderHome();
 // Supabase client loads deferred; init once it's available (also processes magic-link redirects)
 window.addEventListener('load', () => { try { sbInit(); } catch (e) { console.warn(e); } });
+// day counters and stats go stale while the app sits in the background — refresh on return
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    if (document.getElementById('screen-home').classList.contains('active')) renderHome();
+    if (sb && sbUser) cloudSync(false);
+  }
+});
 </script>
 </body>
 </html>
