@@ -119,7 +119,7 @@
   .sel-box .sel-value { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
   .sel-box .sel-value > span:first-child { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #type-value.amber { color: var(--amber); }
-  #bp-value.placeholder { color: var(--dim); }
+  #bp-value.placeholder, #type-value.placeholder { color: var(--dim); }
   .sel-box .sel-value .caret { font-size: 10px; font-weight: 600; color: var(--dim); margin-left: auto; flex-shrink: 0; }
   .bp-panel { display: none; background: #232329; border: 1px solid var(--border2); border-radius: 16px; padding: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
   .bp-panel.open { display: block; }
@@ -554,6 +554,12 @@
         <div class="sub" id="summary-date"></div>
       </div>
       <button class="icon-btn" onclick="goHome()" title="Home">🏠</button>
+    </div>
+    <div class="date-card">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F72585" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+      <div class="d-label" id="summary-date-label"></div>
+      <div class="d-change">Change</div>
+      <input type="date" id="summary-date-input" onchange="changeSummaryDate(this.value)">
     </div>
     <div id="summary-meta-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
     <div class="summary-stats" id="summary-stats"></div>
@@ -1023,12 +1029,12 @@ function startWorkout() {
     workout = active;
     if (!workout.current) workout.current = newCurrent();
     if (!workout.current.pending) workout.current.pending = newPending();
-    if (!workout.type) workout.type = 'Performance';
     if (!workout.bodyParts) workout.bodyParts = [];
     openLogScreen();
     return;
   }
-  workout = { dateISO: homeDateISO, startedAt: Date.now(), exercises: [], current: newCurrent(), type: 'Performance', bodyParts: [] };
+  // type starts unset on purpose — the save-time prompt only fires for truly empty sections
+  workout = { dateISO: homeDateISO, startedAt: Date.now(), exercises: [], current: newCurrent(), bodyParts: [] };
   store.active = workout;
   openLogScreen(true);
 }
@@ -1060,7 +1066,8 @@ function openLogScreen(focusName) {
 function renderWorkoutMeta() {
   if (!workout) return;
   const tv = document.getElementById('type-value');
-  tv.textContent = workout.type || 'Performance';
+  tv.textContent = workout.type || 'Select…';
+  tv.classList.toggle('placeholder', !workout.type);
   tv.classList.toggle('amber', LIGHT_TYPES.includes(workout.type));
   const bv = document.getElementById('bp-value');
   const bp = workout.bodyParts || [];
@@ -1078,7 +1085,7 @@ function openTypeMenu(e) {
     const d = document.createElement('div');
     d.className = 'mi' + (workout.type === t ? ' on' : '');
     d.innerHTML = escapeHtml(t) + (workout.type === t ? '<span class="tick">✓</span>' : '');
-    d.onclick = ev => { ev.stopPropagation(); workout.type = t; workout.typeChosen = true; persistDraft(); closeChipMenu(); closeMissing(); refreshMetaDisplays(); };
+    d.onclick = ev => { ev.stopPropagation(); workout.type = t; persistDraft(); closeChipMenu(); closeMissing(); refreshMetaDisplays(); };
     m.appendChild(d);
   });
   document.body.appendChild(m);
@@ -1151,6 +1158,12 @@ function renderLogDate() {
 function changeLogDate(iso) {
   if (!iso) return;
   workout.dateISO = iso; store.active = workout; renderLogDate();
+}
+function changeSummaryDate(iso) {
+  if (!iso || !workout) return;
+  workout.dateISO = iso;
+  persistDraft();
+  renderSummary();
 }
 
 function renderExerciseCard() {
@@ -1326,7 +1339,7 @@ function recordWorkout(force) {
 
   if (!force) {
     const missBp = !(workout.bodyParts && workout.bodyParts.length);
-    const missType = !workout.typeChosen;
+    const missType = !workout.type;   // only prompt when the section truly has nothing entered
     if (missBp || missType) { openMissing(missBp, missType); return; }
   }
 
@@ -1627,11 +1640,13 @@ function renderSummary() {
   const editing = editingHistoryIdx !== null;
   document.getElementById('summary-title').textContent = editing ? 'Edit workout ✏️' : 'Review workout 💪';
   document.getElementById('record-btn').textContent = editing ? 'Save Changes' : 'Record Workout';
-  document.getElementById('summary-date').textContent = fmtLong(w.dateISO) + (w.duration ? ' · ' + w.duration : '');
+  document.getElementById('summary-date').textContent = w.duration || '';
+  document.getElementById('summary-date-label').textContent = fmtLong(w.dateISO);
+  document.getElementById('summary-date-input').value = w.dateISO;
 
   const bp = w.bodyParts || [];
   document.getElementById('summary-meta-chips').innerHTML = `
-    <button class="chip ${LIGHT_TYPES.includes(w.type) ? 'type-warmup' : 'type-working'}" style="font-size:11px;padding:7px 12px;" onclick="openTypeMenu(event)">${escapeHtml(w.type || 'Performance')} ▾</button>
+    <button class="chip ${w.type ? (LIGHT_TYPES.includes(w.type) ? 'type-warmup' : 'type-working') : ''}" style="font-size:11px;padding:7px 12px;" onclick="openTypeMenu(event)">${w.type ? escapeHtml(w.type) : 'Select type'} ▾</button>
     <button class="chip ${bp.length ? 'max-on' : ''}" style="font-size:11px;padding:7px 12px;" onclick="openBpModal()">${bp.length ? escapeHtml(bp.join(', ')) : 'Add body parts'} ▾</button>`;
 
   const totalSets = w.exercises.reduce((n, ex) => n + ex.sets.length, 0);
