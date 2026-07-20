@@ -862,8 +862,9 @@ function unit() { return store.settings.unit || 'lbs'; }
 
 /* ================= navigation ================= */
 function showScreen(name) {
-  if (name !== 'summary' && editingHistoryIdx !== null) {
-    editingHistoryIdx = null; workout = null; editingKey = null; // leaving = discard unsaved history edits
+  if (name !== 'summary') {
+    editingKey = null; editingExIdx = null;              // drop any in-progress inline edit
+    if (editingHistoryIdx !== null) { editingHistoryIdx = null; workout = null; } // leaving = discard unsaved history edits
   }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
@@ -1265,10 +1266,10 @@ function logSet() {
   workout.current.pending = newPending();
   workout.current.notes = document.getElementById('ex-notes').value.trim();
   store.active = workout;
-  document.getElementById('in-reps').value = '';
-  document.getElementById('in-weight').value = '';
+  // keep the same reps/weight prefilled so the next set defaults to the previous one — tap to change only what differs
+  document.getElementById('in-reps').value = reps;
+  document.getElementById('in-weight').value = weight;
   renderSetRows();
-  document.getElementById('in-reps').focus();
 }
 
 function askDeleteSet(key) {
@@ -1328,7 +1329,7 @@ function completeWorkout() {
   workout.endedAt = Date.now();
   workout.duration = formatDuration(workout.endedAt - workout.startedAt);
   store.active = workout;
-  editingKey = null;
+  editingKey = null; editingExIdx = null;
   renderSummary();
   showScreen('summary');
 }
@@ -1374,7 +1375,7 @@ function editHistoryWorkout(idx) {
   if (!w) return;
   workout = w;
   editingHistoryIdx = idx;
-  editingKey = null;
+  editingKey = null; editingExIdx = null;
   renderSummary();
   showScreen('summary');
 }
@@ -1657,15 +1658,41 @@ function renderSummary() {
     <div class="stat"><div class="num">${totalSets}</div><div class="lbl">SETS</div></div>
     <div class="stat"><div class="num">${w.exercises.length}</div><div class="lbl">EXERCISES</div></div>`;
 
-  // fully editable: every set uses the same tap-to-edit row as the log screen
-  document.getElementById('summary-cards').innerHTML = w.exercises.map((ex, e) => `
-    <div class="hist-card">
-      <div class="hd"><div class="d">${escapeHtml(ex.name)}</div><div class="m">${ex.sets.length} set${ex.sets.length !== 1 ? 's' : ''}</div></div>
+  // fully editable: tap the name to rename, tap any set value to edit it
+  document.getElementById('summary-cards').innerHTML = w.exercises.map((ex, e) => {
+    const header = editingExIdx === e
+      ? `<div class="hd"><div style="display:flex;gap:8px;flex:1;align-items:center;">
+           <input id="edit-exname" value="${escapeAttr(ex.name)}" autocomplete="off"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();saveEditExName();}"
+             style="flex:1;min-width:0;background:var(--deep);border:1px solid var(--pink);border-radius:10px;padding:9px 11px;font:700 14px Montserrat,sans-serif;color:var(--text);outline:none;">
+           <button class="next-set-btn" onclick="saveEditExName()">✓ Save</button>
+         </div></div>`
+      : `<div class="hd"><div class="d" onclick="startEditExName(${e})" style="cursor:pointer;">${escapeHtml(ex.name)} <span style="color:var(--dimmer);font-weight:600;font-size:12px;">✎</span></div><div class="m">${ex.sets.length} set${ex.sets.length !== 1 ? 's' : ''}</div></div>`;
+    return `<div class="hist-card">
+      ${header}
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
         ${ex.sets.map((s, i) => setRowHtml(s, 'x' + e + '_' + i, i + 1)).join('')}
       </div>
       ${ex.notes ? `<div class="hist-note">“${escapeHtml(ex.notes)}”</div>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+let editingExIdx = null;
+function startEditExName(e) {
+  editingKey = null;
+  editingExIdx = e;
+  renderSummary();
+  setTimeout(() => { const el = document.getElementById('edit-exname'); if (el) { el.focus(); el.select(); } }, 50);
+}
+function saveEditExName() {
+  if (editingExIdx === null) return;
+  const el = document.getElementById('edit-exname');
+  const val = el ? el.value.trim() : '';
+  if (val) workout.exercises[editingExIdx].name = val;
+  editingExIdx = null;
+  persistDraft();
+  renderSummary();
 }
 
 function formatWorkoutText(w) {
