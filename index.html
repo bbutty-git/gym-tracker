@@ -1536,8 +1536,10 @@ function isMachineExercise(name) {
 function hasBrandSuffix(name) { return /\([^)]+\)\s*$/.test(name); }
 
 let brandPickerFor = null;
-function openBrandPicker(name) {
+let brandPickerMode = 'log';   // 'log' = new set on log screen; 'edit' = renaming an exercise on review/edit
+function openBrandPicker(name, mode) {
   brandPickerFor = name;
+  brandPickerMode = mode || 'log';
   document.getElementById('brand-ex-name').textContent = name;
   const brands = store.settings.brands || [];
   document.getElementById('brand-options').innerHTML =
@@ -1546,15 +1548,19 @@ function openBrandPicker(name) {
   document.getElementById('brand-modal').classList.add('open');
 }
 function chooseBrand(brand) {
-  const base = brandPickerFor;
+  const base = brandPickerFor, mode = brandPickerMode;
   closeBrandPicker(true);
-  finishPickExercise(brand ? base + ' (' + brand + ')' : base);
+  applyPickedExercise(mode, brand ? base + ' (' + brand + ')' : base);
 }
 function closeBrandPicker(silent) {
   document.getElementById('brand-modal').classList.remove('open');
-  const base = brandPickerFor;
-  brandPickerFor = null;
-  if (!silent && base) finishPickExercise(base); // dismissing = no brand
+  const base = brandPickerFor, mode = brandPickerMode;
+  brandPickerFor = null; brandPickerMode = 'log';
+  if (!silent && base) applyPickedExercise(mode, base); // dismissing = no brand
+}
+function applyPickedExercise(mode, name) {
+  if (mode === 'edit') commitEditExName(name);
+  else finishPickExercise(name);
 }
 function clearExName() {
   const input = document.getElementById('ex-name');
@@ -1661,11 +1667,15 @@ function renderSummary() {
   // fully editable: tap the name to rename, tap any set value to edit it
   document.getElementById('summary-cards').innerHTML = w.exercises.map((ex, e) => {
     const header = editingExIdx === e
-      ? `<div class="hd"><div style="display:flex;gap:8px;flex:1;align-items:center;">
-           <input id="edit-exname" value="${escapeAttr(ex.name)}" autocomplete="off"
-             onkeydown="if(event.key==='Enter'){event.preventDefault();saveEditExName();}"
-             style="flex:1;min-width:0;background:var(--deep);border:1px solid var(--pink);border-radius:10px;padding:9px 11px;font:700 14px Montserrat,sans-serif;color:var(--text);outline:none;">
-           <button class="next-set-btn" onclick="saveEditExName()">✓ Save</button>
+      ? `<div class="hd"><div style="flex:1;min-width:0;position:relative;">
+           <div style="display:flex;gap:8px;align-items:center;">
+             <input id="edit-exname" value="${escapeAttr(ex.name)}" autocomplete="off"
+               oninput="renderExNameSugg(this.value)"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();saveEditExName();}"
+               style="flex:1;min-width:0;background:var(--deep);border:1px solid var(--pink);border-radius:10px;padding:9px 11px;font:700 14px Montserrat,sans-serif;color:var(--text);outline:none;">
+             <button class="next-set-btn" onclick="saveEditExName()">✓ Save</button>
+           </div>
+           <div class="ac-list" id="exname-sugg"></div>
          </div></div>`
       : `<div class="hd"><div class="d" onclick="startEditExName(${e})" style="cursor:pointer;">${escapeHtml(ex.name)} <span style="color:var(--dimmer);font-weight:600;font-size:12px;">✎</span></div><div class="m">${ex.sets.length} set${ex.sets.length !== 1 ? 's' : ''}</div></div>`;
     return `<div class="hist-card">
@@ -1689,7 +1699,51 @@ function saveEditExName() {
   if (editingExIdx === null) return;
   const el = document.getElementById('edit-exname');
   const val = el ? el.value.trim() : '';
-  if (val) workout.exercises[editingExIdx].name = val;
+  if (!val) { commitEditExName(''); return; }   // empty → keep old name
+  chooseEditExercise(val);
+}
+// same autocomplete + machine-brand routing as the log screen, applied to the exercise being renamed
+function renderExNameSugg(query) {
+  const box = document.getElementById('exname-sugg');
+  if (!box) return;
+  const q = (query || '').trim().toLowerCase();
+  if (!q) { box.classList.remove('open'); box.innerHTML = ''; return; }
+  const { recent, preset } = knownExerciseNames();
+  const matches = [
+    ...recent.filter(n => n.toLowerCase().includes(q)),
+    ...preset.filter(n => n.toLowerCase().includes(q))
+  ].slice(0, 6);
+  if (!matches.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
+  box.innerHTML = matches.map(n => {
+    const idx = n.toLowerCase().indexOf(q);
+    const label = idx > -1
+      ? escapeHtml(n.slice(0, idx)) + '<span class="hl">' + escapeHtml(n.slice(idx, idx + q.length)) + '</span>' + escapeHtml(n.slice(idx + q.length))
+      : escapeHtml(n);
+    const lp = lastPerf(n);
+    const meta = lp ? fmtShortISO(lp.dateISO) + ' · ' + lp.top.weight + ' × ' + lp.top.reps : '';
+    return `<div class="ac-item" onclick="pickEditExName(this.dataset.name)" data-name="${escapeAttr(n)}">${CLOCK}<span class="nm">${label}</span>${meta ? `<span class="meta">${escapeHtml(meta)}</span>` : ''}</div>`;
+  }).join('');
+  box.classList.add('open');
+}
+function pickEditExName(name) {
+  const box = document.getElementById('exname-sugg');
+  if (box) box.classList.remove('open');
+  const el = document.getElementById('edit-exname');
+  if (el) el.value = name;
+  chooseEditExercise(name);
+}
+function chooseEditExercise(name) {
+  // machine exercise with no brand yet → ask which brand (this is the "add the machine name" case)
+  if (isMachineExercise(name) && !hasBrandSuffix(name) && (store.settings.brands || []).length) {
+    openBrandPicker(name, 'edit');
+    return;
+  }
+  commitEditExName(name);
+}
+function commitEditExName(name) {
+  if (editingExIdx === null) return;
+  name = (name || '').trim();
+  if (name) workout.exercises[editingExIdx].name = name;
   editingExIdx = null;
   persistDraft();
   renderSummary();
@@ -2241,6 +2295,8 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.ex-name-wrap')) document.getElementById('ac-list').classList.remove('open');
   if (!e.target.closest('.chip-menu')) closeChipMenu();
   if (!e.target.closest('#bp-panel') && !e.target.closest('#bp-box')) closeBodyParts();
+  const es = document.getElementById('exname-sugg');
+  if (es && !e.target.closest('#exname-sugg') && e.target.id !== 'edit-exname') es.classList.remove('open');
 });
 document.getElementById('in-weight').addEventListener('keydown', e => { if (e.key === 'Enter') logSet(); });
 document.getElementById('ex-notes').addEventListener('input', e => {
