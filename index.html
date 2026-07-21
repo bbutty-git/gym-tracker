@@ -904,11 +904,13 @@ function syncUnitToggles() {
 function toggleUnit() {
   const s = store.settings;
   s.unit = unit() === 'lbs' ? 'kg' : 'lbs';
+  s.profileUpdatedAt = Date.now();
   store.settings = s;
   syncUnitToggles();
   if (document.getElementById('screen-log').classList.contains('active')) renderSetRows();
   if (document.getElementById('screen-settings').classList.contains('active')) renderMaxLifts();
   if (document.getElementById('screen-home').classList.contains('active')) renderHome();
+  syncPush();
 }
 
 /* ================= home / start page ================= */
@@ -969,6 +971,7 @@ function askResetDeload() {
   uiConfirm('Reset the deload counter to today?', 'Reset', () => {
     const s = store.settings;
     s.deloadResetISO = todayISO();
+    s.profileUpdatedAt = Date.now();
     store.settings = s;
     syncPush();
     renderDeload();
@@ -1896,6 +1899,7 @@ function addMaxLift(name) {
   if (s.maxLifts.some(n => n.toLowerCase() === name.toLowerCase())) { toast('Already tracked'); return; }
   if (s.maxLifts.length >= 5) { toast('Max 5 lifts'); return; }
   s.maxLifts.push(name);
+  s.profileUpdatedAt = Date.now();
   store.settings = s;
   renderMaxLifts();
   syncPush();
@@ -1908,6 +1912,7 @@ function addMaxLiftFromInput() {
 function removeMaxLift(i) {
   const s = store.settings;
   s.maxLifts.splice(i, 1);
+  s.profileUpdatedAt = Date.now();
   store.settings = s;
   renderMaxLifts();
   syncPush();
@@ -1936,6 +1941,7 @@ function addBrandFromInput() {
   s.brands = s.brands || [];
   if (s.brands.some(b => b.toLowerCase() === name.toLowerCase())) { toast('Already added'); return; }
   s.brands.push(name);
+  s.profileUpdatedAt = Date.now();
   store.settings = s;
   renderBrands();
   syncPush();
@@ -1944,6 +1950,7 @@ function addBrandFromInput() {
 function removeBrand(i) {
   const s = store.settings;
   s.brands.splice(i, 1);
+  s.profileUpdatedAt = Date.now();
   store.settings = s;
   renderBrands();
   syncPush();
@@ -1979,6 +1986,7 @@ function saveSettings() {
   }
   s.sbUrl = document.getElementById('cfg-sb-url').value.trim().replace(/\/+$/, '');
   s.sbKey = document.getElementById('cfg-sb-key').value.trim();
+  s.profileUpdatedAt = Date.now();
   store.settings = s;
   sbInit();
   syncPush();
@@ -2061,12 +2069,18 @@ function mergeRemote(remote) {
   merged.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
   store.history = merged.slice(0, 200);
   s.deletedWorkouts = [...del].slice(-500);
+  // profile is last-write-wins as a block: only adopt the remote profile if it was
+  // edited more recently than ours — otherwise a stale pull would wipe a just-added
+  // brand / max lift before it's even pushed.
   const p = remote.profile || {};
-  ['name', 'height', 'bodyweight', 'unit'].forEach(k => { if (p[k] !== undefined && p[k] !== '' && p[k] !== null) s[k] = p[k]; });
-  if (Array.isArray(p.maxLifts) && p.maxLifts.length) s.maxLifts = p.maxLifts;
-  if (Array.isArray(p.bodyweightLog) && p.bodyweightLog.length >= (s.bodyweightLog || []).length) s.bodyweightLog = p.bodyweightLog;
-  if (p.deloadResetISO && (!s.deloadResetISO || p.deloadResetISO > s.deloadResetISO)) s.deloadResetISO = p.deloadResetISO; // later reset wins
-  if (Array.isArray(p.brands) && p.brands.length) s.brands = p.brands;
+  if ((p.profileUpdatedAt || 0) > (s.profileUpdatedAt || 0)) {
+    ['name', 'height', 'bodyweight', 'unit'].forEach(k => { if (p[k] !== undefined) s[k] = p[k]; });
+    if (Array.isArray(p.maxLifts)) s.maxLifts = p.maxLifts;
+    if (Array.isArray(p.bodyweightLog)) s.bodyweightLog = p.bodyweightLog;
+    if (Array.isArray(p.brands)) s.brands = p.brands;
+    if (p.deloadResetISO !== undefined) s.deloadResetISO = p.deloadResetISO;
+    s.profileUpdatedAt = p.profileUpdatedAt;
+  }
   store.settings = s;
 }
 
@@ -2101,7 +2115,7 @@ async function pushState() {
   const payload = {
     history: store.history,
     deleted: s.deletedWorkouts || [],
-    profile: { name: s.name || '', height: s.height || '', bodyweight: s.bodyweight || '', unit: s.unit || 'lbs', maxLifts: s.maxLifts || [], bodyweightLog: s.bodyweightLog || [], deloadResetISO: s.deloadResetISO || null, brands: s.brands || [] }
+    profile: { name: s.name || '', height: s.height || '', bodyweight: s.bodyweight || '', unit: s.unit || 'lbs', maxLifts: s.maxLifts || [], bodyweightLog: s.bodyweightLog || [], deloadResetISO: s.deloadResetISO || null, brands: s.brands || [], profileUpdatedAt: s.profileUpdatedAt || 0 }
   };
   try {
     const { error } = await sb.from('gym_state').upsert({ user_id: sbUser.id, data: payload, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
