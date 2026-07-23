@@ -421,6 +421,24 @@
 <body>
 <div id="app">
 
+  <!-- ============ LOGIN ============ -->
+  <div class="screen" id="screen-login">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;max-width:330px;margin:0 auto;width:100%;">
+      <div style="text-align:center;margin-bottom:6px;">
+        <div style="font-size:46px;">🏋️</div>
+        <h1 style="font-size:24px;font-weight:800;margin-top:8px;">Gym Tracker</h1>
+        <div style="color:var(--dim);font-size:13px;font-weight:500;margin-top:4px;">Log in to sync your workouts</div>
+      </div>
+      <input class="url-input" id="login-user" placeholder="Username" autocomplete="username" autocapitalize="none" style="padding:14px;font-size:15px;">
+      <input class="url-input" id="login-pass" type="password" placeholder="Password" autocomplete="current-password" style="padding:14px;font-size:15px;" onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="login-err" style="color:#ff8a84;font-size:12.5px;font-weight:600;text-align:center;min-height:15px;"></div>
+      <button class="btn-primary" onclick="doLogin()">Log in</button>
+      <div style="text-align:center;font-size:12.5px;color:var(--dim);margin-top:2px;">
+        <span onclick="useOffline()" style="color:var(--pink);cursor:pointer;font-weight:600;">Use on this device without an account</span>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ HOME / START ============ -->
   <div class="screen active" id="screen-home">
     <div class="page-head">
@@ -2004,7 +2022,24 @@ alter table public.gym_state enable row level security;
 create policy "own state" on public.gym_state
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);`;
 
-let sb = null, sbUser = null, sbPushTimer = null, sbPulledFor = null, sbCreds = '', cloudLastSync = '';
+// Built-in Supabase connection so any device works with zero setup (publishable key is public-safe).
+const DEFAULT_SB_URL = 'https://ffbsvwxntaksqdtbvshz.supabase.co';
+const DEFAULT_SB_KEY = 'sb_publishable_zo9eWfMSH4fryDbAVKA3Tg_aNCydINU';
+const USER_DOMAIN = 'gymtracker.app';   // a plain username "ben" logs in as ben@gymtracker.app
+
+let sb = null, sbUser = null, sbPushTimer = null, sbPulledFor = null, sbCreds = '', cloudLastSync = '', offlineMode = false;
+
+function sbCred() {
+  const s = store.settings;
+  return { url: DEFAULT_SB_URL || s.sbUrl || '', key: DEFAULT_SB_KEY || s.sbKey || '' };
+}
+function hasCloud() { const c = sbCred(); return !!(c.url && c.key); }
+function toLoginEmail(u) { u = (u || '').trim().toLowerCase(); return u ? (u.includes('@') ? u : u + '@' + USER_DOMAIN) : ''; }
+// is there a persisted Supabase session? (decides whether to open on the login screen)
+function hasStoredSession() {
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('sb-') && k.includes('-auth-token')) return true; } } catch (e) {}
+  return false;
+}
 
 function openCloudHelp() { document.getElementById('cloud-sql').textContent = SUPABASE_SQL; document.getElementById('cloud-modal').classList.add('open'); }
 function closeCloudHelp() { document.getElementById('cloud-modal').classList.remove('open'); }
@@ -2012,18 +2047,24 @@ function copySql() { navigator.clipboard.writeText(SUPABASE_SQL).then(() => toas
 
 function sbInit() {
   if (!window.supabase) return;
-  const s = store.settings;
-  if (!s.sbUrl || !s.sbKey) { sb = null; sbCreds = ''; return; }
-  const key = s.sbUrl + '|' + s.sbKey;
+  const c = sbCred();
+  if (!c.url || !c.key) { sb = null; sbCreds = ''; return; }
+  const key = c.url + '|' + c.key;
   if (sb && sbCreds === key) return;
   try {
-    sb = window.supabase.createClient(s.sbUrl, s.sbKey);
+    sb = window.supabase.createClient(c.url, c.key);
     sbCreds = key;
     sb.auth.onAuthStateChange((event, session) => {
       sbUser = session ? session.user : null;
       updateCloudUI();
-      if (sbUser && sbPulledFor !== sbUser.id) onSignedIn();
-      if (!sbUser) sbPulledFor = null;
+      if (sbUser) {
+        if (sbPulledFor !== sbUser.id) onSignedIn();
+        if (document.getElementById('screen-login').classList.contains('active')) goHome();
+      } else {
+        sbPulledFor = null;
+        // signed out (or no session found) → gate on the login screen unless the user chose offline
+        if (hasCloud() && !offlineMode) showScreen('login');
+      }
     });
   } catch (e) { console.warn('sbInit failed', e); sb = null; sbCreds = ''; }
 }
@@ -2126,6 +2167,62 @@ async function pushState() {
 }
 function manualSync() { cloudSync(true); }
 
+/* ---------- username + password login ---------- */
+async function doLogin() {
+  const errEl = document.getElementById('login-err');
+  if (!sb) sbInit();
+  if (!sb) { errEl.textContent = 'Cloud unavailable — check your connection.'; return; }
+  const email = toLoginEmail(document.getElementById('login-user').value);
+  const pw = document.getElementById('login-pass').value;
+  if (!email || !pw) { errEl.textContent = 'Enter your username and password.'; return; }
+  errEl.style.color = 'var(--dim)'; errEl.textContent = 'Logging in…';
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if (error) throw error;
+    offlineMode = false;
+    errEl.textContent = '';
+    // onAuthStateChange(SIGNED_IN) pulls data and sends us home
+  } catch (e) {
+    errEl.style.color = '#ff8a84';
+    errEl.textContent = /invalid login/i.test(e.message || '') ? 'Wrong username or password.' : (e.message || 'Login failed');
+  }
+}
+function useOffline() { offlineMode = true; document.getElementById('login-pass').value = ''; goHome(); }
+
+// create (or update) a username+password login. Run while signed in on your main device so your
+// existing data rides along in localStorage and gets pushed under the new login.
+async function setupUsernameLogin() {
+  const u = ((document.getElementById('setup-user') || {}).value || '').trim().toLowerCase();
+  const pw = (document.getElementById('setup-pass') || {}).value || '';
+  if (!u || !pw) { toast('Enter a username and password'); return; }
+  if (pw.length < 6) { toast('Password needs 6+ characters'); return; }
+  if (!sb) { sbInit(); if (!sb) { toast('Cloud unavailable'); return; } }
+  const email = toLoginEmail(u);
+  if (sbUser && sbUser.email === email) {   // already this account → just change the password
+    const { error } = await sb.auth.updateUser({ password: pw });
+    toast(error ? 'Failed: ' + error.message : 'Password updated ✓');
+    return;
+  }
+  toast('Setting up “' + u + '”…');
+  const { data, error } = await sb.auth.signUp({ email, password: pw });
+  if (error) {
+    if (/already registered/i.test(error.message)) {
+      const { error: e2 } = await sb.auth.signInWithPassword({ email, password: pw });
+      if (e2) { toast('“' + u + '” already exists with a different password.'); return; }
+    } else {
+      toast('Setup failed: ' + error.message);
+      return;
+    }
+  } else if (!data.session) {
+    // account made but not signed in → email confirmation is still on
+    toast('Almost — turn OFF “Confirm email” in Supabase, then tap Save again.');
+    return;
+  }
+  offlineMode = false;
+  toast('Done — logged in as “' + u + '”, your data moved over ✓');
+  // SIGNED_IN(new account) → onSignedIn → localStorage data pushes to this login's row
+}
+
 async function cloudSignIn() {
   const url = document.getElementById('cfg-sb-url').value.trim().replace(/\/+$/, '');
   const key = document.getElementById('cfg-sb-key').value.trim();
@@ -2183,18 +2280,23 @@ function updateCloudUI() {
     authEl.innerHTML = '<div class="maxlift-hint" style="padding:6px 0 0;">Cloud library couldn’t load — you may be offline. Your workouts are still saved on this device.</div>';
     return;
   }
-  const urlField = (document.getElementById('cfg-sb-url').value || '').trim();
-  const keyField = (document.getElementById('cfg-sb-key').value || '').trim();
-  const s = store.settings;
-  const haveCreds = (urlField && keyField) || (s.sbUrl && s.sbKey);
+  const haveCreds = hasCloud();
   const deviceLink = `<div class="maxlift-hint" style="padding:9px 0 0;text-align:center;"><a onclick="copyDeviceLink()" style="color:var(--pink);cursor:pointer;font-weight:700;">🔗 Copy device link →</a><br>open it on another device to auto-fill these keys</div>`;
+  const acctName = sbUser ? (sbUser.email || '').replace('@' + USER_DOMAIN, '') : '';
   if (sbUser) {
     statusEl.className = 'status on'; statusEl.innerHTML = '<span class="dot"></span> Signed in';
-    authEl.innerHTML = `<div class="maxlift-hint" style="padding:0 0 8px;">Signed in as <b>${escapeHtml(sbUser.email || '')}</b>${cloudLastSync ? ' · ' + escapeHtml(cloudLastSync) : ''}</div>
-      <div style="display:flex;gap:8px;"><button class="btn-outline" style="flex:1;" onclick="manualSync()">Sync now</button><button class="btn-outline" style="flex:1;" onclick="cloudSignOut()">Sign out</button></div>${deviceLink}`;
+    authEl.innerHTML = `<div class="maxlift-hint" style="padding:0 0 8px;">Signed in as <b>${escapeHtml(acctName)}</b>${cloudLastSync ? ' · ' + escapeHtml(cloudLastSync) : ''}</div>
+      <div style="display:flex;gap:8px;"><button class="btn-outline" style="flex:1;" onclick="manualSync()">Sync now</button><button class="btn-outline" style="flex:1;" onclick="cloudSignOut()">Sign out</button></div>
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
+        <div class="maxlift-hint" style="padding:0 0 8px;">Set a username + password to log in on any device (no email link). <b>Turn off “Confirm email” in Supabase first.</b></div>
+        <input class="url-input" id="setup-user" placeholder="Username (e.g. ben)" autocapitalize="none" style="margin:0 0 8px;">
+        <input class="url-input" id="setup-pass" type="password" placeholder="Password" style="margin:0 0 8px;">
+        <button class="btn-outline" onclick="setupUsernameLogin()">Save username &amp; password</button>
+      </div>`;
   } else if (haveCreds) {
-    statusEl.className = 'status off'; statusEl.textContent = 'Sign in';
-    authEl.innerHTML = `<input class="url-input" id="cloud-email" type="email" placeholder="you@email.com" style="margin:0 0 8px;">
+    statusEl.className = 'status off'; statusEl.textContent = 'Not signed in';
+    authEl.innerHTML = `<div class="maxlift-hint" style="padding:0 0 8px;">Log in from the login screen, or use the email link:</div>
+      <input class="url-input" id="cloud-email" type="email" placeholder="you@email.com" style="margin:0 0 8px;">
       <button class="btn-outline" onclick="cloudSignIn()">Email me a sign-in link</button>${deviceLink}`;
   } else {
     statusEl.className = 'status off'; statusEl.textContent = 'Not set up'; authEl.innerHTML = '';
@@ -2319,7 +2421,9 @@ document.getElementById('ex-notes').addEventListener('input', e => {
 
 applyCfgFromHash();
 renderHome();
-// Supabase client loads deferred; init once it's available (also processes magic-link redirects)
+// open on the login screen if the cloud is available and there's no saved session yet
+if (hasCloud() && !hasStoredSession() && !offlineMode) showScreen('login');
+// Supabase client loads deferred; init once it's available (restores session / handles auth)
 window.addEventListener('load', () => { try { sbInit(); } catch (e) { console.warn(e); } });
 // day counters and stats go stale while the app sits in the background — refresh on return
 document.addEventListener('visibilitychange', () => {
