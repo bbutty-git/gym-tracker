@@ -358,12 +358,13 @@
   .sync-row .sh .status.on { color: var(--green); }
   .sync-row .sh .status.off { color: var(--dimmer); font-weight: 600; }
   .sync-row .sh .status .dot { width: 7px; height: 7px; border-radius: 99px; background: currentColor; display: inline-block; }
-  .sync-row .url-input {
+  .url-input {
     margin-top: 9px; width: 100%; background: var(--deep); border: 1px solid rgba(255,255,255,.1);
     border-radius: 10px; padding: 9px 12px; font: 500 11.5px Montserrat, sans-serif; color: var(--text); outline: none;
   }
-  .sync-row .url-input:focus { border-color: var(--pink); }
-  .sync-row .url-input::placeholder { color: var(--dimmer); }
+  #screen-login .url-input { margin-top: 0; }
+  .url-input:focus { border-color: var(--pink); }
+  .url-input::placeholder { color: var(--dimmer); }
   .help-chip {
     background: var(--pink-soft); border: 1px solid var(--pink-line); color: var(--pink);
     font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 99px; cursor: pointer;
