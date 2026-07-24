@@ -1098,6 +1098,7 @@ function lastMuscleWorkout(m) {
 function recoveryRecommendation(m) {
   const last = lastMuscleWorkout(m);
   if (!last) return null;
+  if (LIGHT_TYPES.includes(last.type)) return null;  // deload/recovery has intentionally low volume — bad baseline
   const ans = (last.recovery || {})[m];
   if (!ans || !RECOVERY[ans] || RECOVERY[ans].delta === 0) return null;
   const base = workingSetsForMuscle(last, m);
