@@ -852,7 +852,7 @@ const MACHINE_NATURE = ["Leg Press","Single Leg Press","Hack Squat","Belt Squat"
 
 const SET_TYPES = { working: 'Working set', warmup: 'Warm up set' };
 const EXTRAS = { assisted: 'Assisted Reps', drop: 'Drop Sets', restpause: 'Rest/Pause', half: 'Half Reps' };
-const WORKOUT_TYPES = ['Performance', 'Hypertrophy', 'Strength', 'Endurance', 'Deload', 'Recovery'];
+const WORKOUT_TYPES = ['Deload', 'Hypertrophy', 'Strength'];
 const LIGHT_TYPES = ['Deload', 'Recovery'];       // shown in amber
 const BODY_PARTS = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs', 'Glutes', 'Core'];
 const FLAME = '<svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(247,37,133,.25)" stroke="#F72585" stroke-width="2" style="vertical-align:-1px"><path d="M12 3c1 3-2 4.5-2 7a4 4 0 008 0c0-1.5-.7-2.6-1.5-3.5C15.5 8.5 14 9 14 7c0-1.5-.8-3-2-4z"></path></svg>';
@@ -1208,7 +1208,8 @@ function openLogScreen(focusName) {
   renderRecoNote();
   renderExerciseCard();
   showScreen('log');
-  if (focusName) setTimeout(() => document.getElementById('ex-name').focus(), 60);
+  // a brand-new workout opens the Workout Type picker first (not the exercise name)
+  if (focusName) setTimeout(() => { try { openTypeMenu(); } catch (e) {} }, 150);
 }
 
 /* ---------- workout type + body parts ---------- */
@@ -1225,7 +1226,7 @@ function renderWorkoutMeta() {
 }
 
 function openTypeMenu(e) {
-  e.stopPropagation();
+  if (e && e.stopPropagation) e.stopPropagation();
   closeChipMenu();
   closeBodyParts();
   const m = document.createElement('div');
@@ -1238,7 +1239,8 @@ function openTypeMenu(e) {
     m.appendChild(d);
   });
   document.body.appendChild(m);
-  const r = e.currentTarget.getBoundingClientRect();
+  const anchor = (e && e.currentTarget) || document.getElementById('type-box');
+  const r = anchor.getBoundingClientRect();
   let x = Math.min(r.left, window.innerWidth - m.offsetWidth - 10);
   let y = r.bottom + 6;
   if (y + m.offsetHeight > window.innerHeight - 10) y = r.top - m.offsetHeight - 6;
