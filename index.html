@@ -141,6 +141,11 @@
     width: 100%; max-width: 360px; padding: 20px;
   }
   .confirm-card #confirm-msg { font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--text); }
+  .reco-note {
+    display: flex; gap: 8px; align-items: flex-start; background: rgba(247,37,133,.08);
+    border: 1px solid var(--pink-line); border-radius: 12px; padding: 11px 13px;
+    font-size: 12.5px; font-weight: 600; line-height: 1.5; color: var(--text);
+  }
   .brand-opt {
     display: block; width: 100%; cursor: pointer; font-family: inherit;
     background: var(--pink-soft); border: 1px solid var(--pink-line); color: var(--pink);
@@ -531,8 +536,10 @@
     </div>
     <div class="bp-panel" id="bp-panel">
       <div class="bp-pills" id="bp-pills"></div>
-      <div class="bp-done" onclick="closeBodyParts()">Done</div>
+      <div class="bp-done" onclick="doneBodyParts()">Done</div>
     </div>
+
+    <div class="reco-note" id="reco-note" style="display:none;"></div>
 
     <div class="ex-card">
       <div class="ex-card-top">
@@ -755,6 +762,21 @@
     <div class="section-label">Which machine?</div>
     <div id="brand-ex-name" style="font-size:16px;font-weight:800;margin:4px 0 14px;"></div>
     <div id="brand-options" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
+<!-- ============ RECOVERY CHECK-IN ============ -->
+<div class="modal-backdrop confirm-backdrop" id="recovery-modal" onclick="if(event.target===this){recoveryQueue=[];nextRecovery();}">
+  <div class="confirm-card">
+    <div class="section-label" id="recovery-sub">Since your last session</div>
+    <div id="recovery-title" style="font-size:17px;font-weight:800;margin:4px 0 12px;"></div>
+    <div id="recovery-rec" style="display:none;font-size:12.5px;font-weight:600;line-height:1.5;background:rgba(247,37,133,.08);border:1px solid var(--pink-line);border-radius:10px;padding:10px 12px;margin-bottom:12px;color:var(--text);"></div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="brand-opt" onclick="answerRecovery('early')">I recovered days ago</button>
+      <button class="brand-opt" onclick="answerRecovery('ontime')">I recovered right on time</button>
+      <button class="brand-opt" onclick="answerRecovery('sore')">I was still sore</button>
+      <button class="brand-opt none" onclick="answerRecovery(null)">Skip</button>
+    </div>
   </div>
 </div>
 
@@ -1032,6 +1054,101 @@ function effectiveBodyParts(w) {
   return (w.bodyParts && w.bodyParts.length) ? w.bodyParts : inferBodyParts(w);
 }
 
+// the single PRIMARY (direct) muscle an exercise works — priority-ordered, first match wins.
+// e.g. Dips → Triceps (not Chest), Close-Grip Bench → Triceps, Leg Curl → Legs (not Biceps).
+const PRIMARY_RULES = [
+  [/leg curl|leg extension|leg press|hack squat|belt squat|calf/, 'Legs'],
+  [/close grip|skull crusher|pushdown|tricep|\bdip\b|overhead.*extension/, 'Triceps'],
+  [/lateral raise|front raise|rear delt|face pull|upright row|reverse fly|reverse pec/, 'Shoulders'],
+  [/overhead press|shoulder press|arnold|military press|\bohp\b/, 'Shoulders'],
+  [/glute|hip thrust|hip abduction|hip adduction|kettlebell swing/, 'Glutes'],
+  [/romanian deadlift|\brdl\b/, 'Legs'],
+  [/row|pulldown|pull ?up|chin ?up|deadlift|rack pull|shrug|pullover|back extension|good morning|\blat\b/, 'Back'],
+  [/curl/, 'Biceps'],
+  [/squat|lunge|split squat|step up/, 'Legs'],
+  [/bench|chest|fly|crossover|push ?up|press/, 'Chest'],
+  [/plank|crunch|sit ?up|leg raise|knee raise|russian|ab wheel|woodchopper|dead bug|mountain climber|farmer|hollow/, 'Core']
+];
+function primaryMuscle(name) {
+  const n = (name || '').toLowerCase();
+  for (const [re, muscle] of PRIMARY_RULES) if (re.test(n)) return muscle;
+  return null;
+}
+
+/* ---------- recovery feedback → working-set recommendation ---------- */
+const RECOVERY = {
+  early:  { label: 'I recovered days ago', delta: +1 },
+  ontime: { label: 'I recovered right on time', delta: 0 },
+  sore:   { label: 'I was still sore', delta: -1 }
+};
+// working sets (type 'working', incl. max sets) whose primary muscle is m, in one workout
+function workingSetsForMuscle(w, m) {
+  let n = 0;
+  (w.exercises || []).forEach(ex => {
+    if (primaryMuscle(ex.name) === m) n += ex.sets.filter(s => s.type === 'working').length;
+  });
+  return n;
+}
+// most recent past workout (history is newest-first) that actually worked muscle m
+function lastMuscleWorkout(m) {
+  for (const w of store.history) if (workingSetsForMuscle(w, m) > 0) return w;
+  return null;
+}
+// recommendation for m this session = last m-workout's set count adjusted by its recovery answer
+function recoveryRecommendation(m) {
+  const last = lastMuscleWorkout(m);
+  if (!last) return null;
+  const ans = (last.recovery || {})[m];
+  if (!ans || !RECOVERY[ans] || RECOVERY[ans].delta === 0) return null;
+  const base = workingSetsForMuscle(last, m);
+  if (!base) return null;
+  const target = Math.max(1, base + RECOVERY[ans].delta);
+  if (target === base) return null;
+  return { muscle: m, base, target, up: RECOVERY[ans].delta > 0 };
+}
+
+let recoveryQueue = [];
+// fired from the body-parts "Done" button on the log screen
+function doneBodyParts() {
+  closeBodyParts();
+  if (!workout) return;
+  workout.recovery = workout.recovery || {};
+  recoveryQueue = (workout.bodyParts || []).filter(m => !(m in workout.recovery));
+  nextRecovery();
+}
+function nextRecovery() {
+  if (!recoveryQueue.length) {
+    document.getElementById('recovery-modal').classList.remove('open');
+    renderRecoNote();
+    return;
+  }
+  const m = recoveryQueue[0];
+  const rec = recoveryRecommendation(m);
+  document.getElementById('recovery-sub').textContent = 'Since your last ' + m + ' session';
+  document.getElementById('recovery-title').textContent = 'How did your ' + m + ' feel?';
+  const recEl = document.getElementById('recovery-rec');
+  if (rec) {
+    recEl.style.display = 'block';
+    recEl.innerHTML = `💡 Last ${escapeHtml(m)} session you recovered ${rec.up ? 'early' : 'while still sore'} — aim for <b>${rec.target}</b> working set${rec.target !== 1 ? 's' : ''} today (was ${rec.base}).`;
+  } else { recEl.style.display = 'none'; recEl.innerHTML = ''; }
+  document.getElementById('recovery-modal').classList.add('open');
+}
+function answerRecovery(ans) {
+  const m = recoveryQueue.shift();
+  if (m && ans) { workout.recovery = workout.recovery || {}; workout.recovery[m] = ans; persistDraft(); }
+  nextRecovery();
+}
+// persistent note on the log screen with this session's recommendations
+function renderRecoNote() {
+  const el = document.getElementById('reco-note');
+  if (!el) return;
+  const recs = (workout && workout.bodyParts || []).map(recoveryRecommendation).filter(Boolean);
+  if (!recs.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = '<span style="flex-shrink:0;">💡</span><div>' +
+    recs.map(r => `<b>${escapeHtml(r.muscle)}</b> — aim for ${r.target} working set${r.target !== 1 ? 's' : ''}`).join('<br>') + '</div>';
+}
+
 function renderBodyPartRecency() {
   const el = document.getElementById('bp-recency');
   // most recent workout date per body part (tagged, or inferred from exercise names)
@@ -1087,6 +1204,7 @@ function openLogScreen(focusName) {
   renderLogDate();
   renderWorkoutMeta();
   closeBodyParts();
+  renderRecoNote();
   renderExerciseCard();
   showScreen('log');
   if (focusName) setTimeout(() => document.getElementById('ex-name').focus(), 60);
