@@ -250,10 +250,15 @@
   .set-num {
     width: 24px; height: 24px; border-radius: 8px; background: var(--pink-soft);
     color: var(--pink); display: grid; place-items: center; font-size: 11px; font-weight: 700;
-    cursor: pointer; flex-shrink: 0;
+    flex-shrink: 0;
   }
-  .set-num.muted { background: rgba(255,255,255,.08); color: rgba(255,255,255,.6); cursor: default; }
-  .set-row .reps-val, .set-row .wt-val { font-size: 14px; font-weight: 700; }
+  .set-num.muted { background: rgba(255,255,255,.08); color: rgba(255,255,255,.6); }
+  .set-del {
+    background: none; border: none; color: var(--dimmer); cursor: pointer; font-size: 14px;
+    line-height: 1; padding: 5px 6px; margin-left: 6px; border-radius: 8px; flex-shrink: 0;
+  }
+  .set-del:active { background: rgba(229,83,75,.2); }
+  .set-row .reps-val, .set-row .wt-val { font-size: 14px; font-weight: 700; cursor: pointer; }
   .set-row .wt-val { margin-left: auto; }
   .set-row .u { font-size: 11px; font-weight: 500; color: var(--dim); }
   .set-row .top input {
@@ -1364,10 +1369,11 @@ function setRowHtml(s, key, num) {
        <input type="text" inputmode="decimal" id="edit-weight" value="${escapeAttr(String(s.weight))}" placeholder="Weight">
        <button class="next-set-btn" onclick="saveEditSet()">✓ Save</button>`
     : `<div class="reps-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.reps))} <span class="u">reps</span></div>
-       <div class="wt-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.weight))} <span class="u">${u}</span></div>`;
+       <div class="wt-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.weight))} <span class="u">${u}</span></div>
+       <button class="set-del" onclick="askDeleteSet('${key}')" title="Delete set" aria-label="Delete set">🗑</button>`;
   return `<div class="set-row ${s.max ? 'max' : ''}">
     <div class="top">
-      <div class="set-num" onclick="askDeleteSet('${key}')" title="Tap to remove">${num}</div>
+      <div class="set-num">${num}</div>
       ${vals}
     </div>
     <div class="chip-row">${chipButtons(s, key)}</div>
