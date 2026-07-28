@@ -1099,7 +1099,13 @@ function lastMuscleWorkout(m) {
   for (const w of store.history) if (workingSetsForMuscle(w, m) > 0) return w;
   return null;
 }
-// recommendation for m this session = last m-workout's set count adjusted by its recovery answer
+// a "finisher" = a working set carrying an intensity tag (Drop Sets / Rest-Pause / Half Reps / Assisted Reps)
+function hadFinisherForMuscle(w, m) {
+  return (w.exercises || []).some(ex => primaryMuscle(ex.name) === m && ex.sets.some(s => EXTRAS[s.extra]));
+}
+// recommendation for m this session, escalating finisher-first:
+//   recovered early → add a finisher (if none last time) else +1 working set
+//   still sore      → drop the finisher (if any) else −1 working set
 function recoveryRecommendation(m) {
   const last = lastMuscleWorkout(m);
   if (!last) return null;
@@ -1108,10 +1114,26 @@ function recoveryRecommendation(m) {
   if (!ans || !RECOVERY[ans] || RECOVERY[ans].delta === 0) return null;
   const base = workingSetsForMuscle(last, m);
   if (!base) return null;
-  const target = Math.max(1, base + RECOVERY[ans].delta);
-  if (target === base) return null;
-  return { muscle: m, base, target, up: RECOVERY[ans].delta > 0 };
+  const hadFin = hadFinisherForMuscle(last, m);
+  if (RECOVERY[ans].delta > 0) {                       // recovered early → add volume
+    if (!hadFin) return { muscle: m, kind: 'addFinisher', base, target: base };
+    return { muscle: m, kind: 'addSet', base, target: base + 1 };
+  }
+  // still sore → pull volume back
+  if (hadFin) return { muscle: m, kind: 'removeFinisher', base, target: base };
+  if (base <= 1) return null;                            // can't go below one set
+  return { muscle: m, kind: 'removeSet', base, target: base - 1 };
 }
+function recPhrase(r) {
+  switch (r.kind) {
+    case 'addSet':        return `aim for ${r.target} working sets (was ${r.base})`;
+    case 'removeSet':     return `drop to ${r.target} working set${r.target !== 1 ? 's' : ''} (was ${r.base})`;
+    case 'addFinisher':   return `add a finisher (drop set / rest-pause / half reps) to your ${r.base} set${r.base !== 1 ? 's' : ''}`;
+    case 'removeFinisher':return `skip the finisher this time — keep your ${r.base} set${r.base !== 1 ? 's' : ''}, but not to failure`;
+  }
+  return '';
+}
+function recWasEarly(r) { return r.kind === 'addSet' || r.kind === 'addFinisher'; }
 
 let recoveryQueue = [];
 // fired from the body-parts "Done" button on the log screen
@@ -1135,7 +1157,7 @@ function nextRecovery() {
   const recEl = document.getElementById('recovery-rec');
   if (rec) {
     recEl.style.display = 'block';
-    recEl.innerHTML = `💡 Last ${escapeHtml(m)} session you recovered ${rec.up ? 'early' : 'while still sore'} — aim for <b>${rec.target}</b> working set${rec.target !== 1 ? 's' : ''} today (was ${rec.base}).`;
+    recEl.innerHTML = `💡 Last ${escapeHtml(m)} session you recovered ${recWasEarly(rec) ? 'early' : 'while still sore'} — ${recPhrase(rec)}.`;
   } else { recEl.style.display = 'none'; recEl.innerHTML = ''; }
   document.getElementById('recovery-modal').classList.add('open');
 }
@@ -1152,7 +1174,7 @@ function renderRecoNote() {
   if (!recs.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'flex';
   el.innerHTML = '<span style="flex-shrink:0;">💡</span><div>' +
-    recs.map(r => `<b>${escapeHtml(r.muscle)}</b> — aim for ${r.target} working set${r.target !== 1 ? 's' : ''}`).join('<br>') + '</div>';
+    recs.map(r => `<b>${escapeHtml(r.muscle)}</b> — ${recPhrase(r)}`).join('<br>') + '</div>';
 }
 
 function renderBodyPartRecency() {
