@@ -146,6 +146,34 @@
     border: 1px solid var(--pink-line); border-radius: 12px; padding: 11px 13px;
     font-size: 12.5px; font-weight: 600; line-height: 1.5; color: var(--text);
   }
+  /* lifting lock */
+  .lift-btn {
+    width: 100%; background: var(--deep); border: 1px solid var(--pink-line);
+    border-radius: 14px; padding: 15px; font: 800 15px Montserrat,sans-serif; color: var(--pink);
+    cursor: pointer; letter-spacing: .02em; margin-bottom: 4px;
+  }
+  .lift-btn:active { background: var(--pink-soft); }
+  .lift-lock {
+    position: fixed; inset: 0; z-index: 9999; display: none;
+    background: #050506; color: var(--text);
+    -webkit-user-select: none; user-select: none; touch-action: none;
+    padding: max(28px, env(safe-area-inset-top)) 26px max(28px, env(safe-area-inset-bottom));
+  }
+  .lift-lock.open { display: flex; }
+  .lift-lock-inner { margin: auto; width: 100%; max-width: 340px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .lift-lock-icon { font-size: 46px; }
+  .lift-lock-title { font-size: 22px; font-weight: 800; }
+  .lift-lock-ex { font-size: 14px; font-weight: 700; color: var(--pink); min-height: 18px; }
+  .lift-lock-sub { font-size: 13px; font-weight: 500; color: var(--dimmer); line-height: 1.5; margin-bottom: 14px; }
+  .lift-unlock {
+    position: relative; overflow: hidden; width: 100%; height: 64px; border-radius: 16px;
+    border: 2px solid var(--pink); background: var(--pink-soft); color: var(--pink);
+    font: 800 15px Montserrat,sans-serif; cursor: pointer; touch-action: none;
+  }
+  .lift-unlock-fill { position: absolute; inset: 0; width: 0%; background: var(--pink); transition: none; z-index: 0; }
+  .lift-unlock.holding .lift-unlock-fill { width: 100%; transition: width 1.4s linear; }
+  .lift-unlock-label { position: relative; z-index: 1; }
+  .lift-unlock.holding .lift-unlock-label { color: #fff; }
   .brand-opt {
     display: block; width: 100%; cursor: pointer; font-family: inherit;
     background: var(--pink-soft); border: 1px solid var(--pink-line); color: var(--pink);
@@ -329,6 +357,17 @@
   .hist-chip.max { background: var(--pink-soft); border: 1px solid rgba(247,37,133,.4); color: var(--pink); }
   .hist-chip .tech-tag { font-size: 8px; font-weight: 800; color: var(--cyan); letter-spacing: .06em; }
   .hist-note { margin-top: 8px; font-size: 11px; font-weight: 500; color: var(--dimmer); font-style: italic; }
+  .hist-comment { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); font-size: 12px; font-weight: 600; color: rgba(255,255,255,.82); line-height: 1.4; }
+  /* review-screen add buttons */
+  .add-set-btn { margin-top: 10px; width: 100%; background: transparent; border: 1px dashed rgba(247,37,133,.5); border-radius: 10px; padding: 8px; font: 700 12px Montserrat,sans-serif; color: var(--pink); cursor: pointer; }
+  .add-set-btn:active { background: var(--pink-soft); }
+  .add-ex-btn { width: 100%; background: transparent; border: 1px dashed rgba(247,37,133,.6); border-radius: 12px; padding: 12px; font: 800 13px Montserrat,sans-serif; color: var(--pink); cursor: pointer; }
+  .add-ex-btn:active { background: var(--pink-soft); }
+  /* workout comment */
+  .cmt-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .cmt-label { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--dimmer); }
+  .cmt-area { width: 100%; min-height: 68px; resize: vertical; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 11px 12px; font: 500 14px Montserrat,sans-serif; color: var(--text); outline: none; }
+  .cmt-area:focus { border-color: var(--pink); }
   .badge { font-size: 10px; font-weight: 700; padding: 4px 9px; border-radius: 99px; flex-shrink: 0; }
   .badge.synced { background: rgba(43,217,169,.12); color: var(--green); }
   .badge.local { background: rgba(255,180,84,.12); color: var(--amber); }
@@ -575,6 +614,7 @@
       <textarea id="ex-notes" placeholder="Notes…"></textarea>
     </div>
 
+    <button class="lift-btn" onclick="startLifting()">🔒 Lifting — lock screen</button>
     <button class="btn-primary" onclick="nextExercise()">Next exercise →</button>
     <button class="btn-outline" onclick="completeWorkout()">Complete workout</button>
     <button class="perf-link" onclick="openPerf()">
@@ -603,6 +643,11 @@
     <div class="summary-stats" id="summary-stats"></div>
     <div class="maxlift-hint" style="padding:0 2px;">Tap any weight, reps, or tag to edit. Tap a set number to remove it.</div>
     <div id="summary-cards" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <button class="add-ex-btn" onclick="addExerciseToWorkout()">+ Add exercise</button>
+    <div class="cmt-wrap">
+      <label class="cmt-label" for="workout-comment">Workout comment</label>
+      <textarea id="workout-comment" class="cmt-area" placeholder="How did the session go? Energy, pumps, niggles…" oninput="setWorkoutComment(this.value)"></textarea>
+    </div>
     <button class="btn-outline" onclick="copyFormatted()">Copy formatted text</button>
     <div class="spacer"></div>
     <button class="btn-primary" id="record-btn" onclick="recordWorkout()">Record Workout</button>
@@ -804,6 +849,22 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- ============ LIFTING LOCK ============ -->
+<div class="lift-lock" id="lift-lock">
+  <div class="lift-lock-inner">
+    <div class="lift-lock-icon">🔒</div>
+    <div class="lift-lock-title">Screen locked</div>
+    <div class="lift-lock-ex" id="lift-lock-ex"></div>
+    <div class="lift-lock-sub">Buttons are disabled and the screen won't sleep. Safe to pocket.</div>
+    <button class="lift-unlock" id="lift-unlock"
+      onpointerdown="holdUnlockStart(event)" onpointerup="holdUnlockEnd()"
+      onpointercancel="holdUnlockEnd()" onpointerleave="holdUnlockEnd()">
+      <span class="lift-unlock-fill" id="lift-unlock-fill"></span>
+      <span class="lift-unlock-label">Hold to unlock</span>
+    </button>
+  </div>
+</div>
 
 <script>
 /* ================= constants ================= */
@@ -1175,6 +1236,60 @@ function renderRecoNote() {
   el.style.display = 'flex';
   el.innerHTML = '<span style="flex-shrink:0;">💡</span><div>' +
     recs.map(r => `<b>${escapeHtml(r.muscle)}</b> — ${recPhrase(r)}`).join('<br>') + '</div>';
+}
+
+/* ================= lifting lock (freeze screen + keep it awake) ================= */
+let liftLockActive = false;
+let wakeLock = null;
+async function acquireWakeLock() {
+  try {
+    if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (e) { /* wake lock unsupported or denied — lock overlay still blocks taps */ }
+}
+function releaseWakeLock() {
+  try { if (wakeLock) wakeLock.release(); } catch (e) {}
+  wakeLock = null;
+}
+// browsers auto-release the wake lock when the tab is hidden; re-grab it when we come back while still locked
+document.addEventListener('visibilitychange', () => {
+  if (liftLockActive && document.visibilityState === 'visible' && !wakeLock) acquireWakeLock();
+});
+function startLifting() {
+  liftLockActive = true;
+  // show what you're on, so a glance through the lock still tells you where you are
+  let label = '';
+  if (workout) {
+    const cur = (workout.current && workout.current.name) || '';
+    const setNo = (workout.current && workout.current.sets ? workout.current.sets.length + 1 : 1);
+    label = cur ? cur + ' · set ' + setNo : '';
+  }
+  document.getElementById('lift-lock-ex').textContent = label;
+  document.getElementById('lift-lock').classList.add('open');
+  acquireWakeLock();
+}
+function endLifting() {
+  liftLockActive = false;
+  releaseWakeLock();
+  document.getElementById('lift-lock').classList.remove('open');
+  const btn = document.getElementById('lift-unlock');
+  if (btn) btn.classList.remove('holding');
+}
+let holdUnlockTimer = null;
+function holdUnlockStart(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const btn = document.getElementById('lift-unlock');
+  if (btn) { void btn.offsetWidth; btn.classList.add('holding'); }  // reflow so the fill animation restarts
+  clearTimeout(holdUnlockTimer);
+  holdUnlockTimer = setTimeout(endLifting, 1400);   // must match the CSS fill transition
+}
+function holdUnlockEnd() {
+  clearTimeout(holdUnlockTimer);
+  holdUnlockTimer = null;
+  const btn = document.getElementById('lift-unlock');
+  if (btn) btn.classList.remove('holding');
 }
 
 function renderBodyPartRecency() {
@@ -1861,9 +1976,38 @@ function renderSummary() {
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
         ${ex.sets.map((s, i) => setRowHtml(s, 'x' + e + '_' + i, i + 1)).join('')}
       </div>
+      <button class="add-set-btn" onclick="addSetToExercise(${e})">+ Add set</button>
       ${ex.notes ? `<div class="hist-note">“${escapeHtml(ex.notes)}”</div>` : ''}
     </div>`;
   }).join('');
+
+  const cmt = document.getElementById('workout-comment');
+  if (cmt && document.activeElement !== cmt) cmt.value = w.comment || '';
+}
+function setWorkoutComment(v) {
+  if (!workout) return;
+  workout.comment = v;
+  persistDraft();
+}
+// add a blank working set to an exercise on the review screen, opened for editing
+function addSetToExercise(e) {
+  if (!workout || !workout.exercises[e]) return;
+  workout.exercises[e].sets.push({ reps: '', weight: '', type: 'working', max: false, extra: null });
+  editingExIdx = null;
+  editingKey = 'x' + e + '_' + (workout.exercises[e].sets.length - 1);
+  persistDraft();
+  renderSummary();
+  setTimeout(() => { const el = document.getElementById('edit-weight'); if (el) { el.focus(); el.select(); } }, 50);
+}
+// add a new, empty exercise to the workout and open its name editor
+function addExerciseToWorkout() {
+  if (!workout) return;
+  workout.exercises.push({ name: '', notes: '', sets: [{ reps: '', weight: '', type: 'working', max: false, extra: null }] });
+  editingKey = null;
+  editingExIdx = workout.exercises.length - 1;
+  persistDraft();
+  renderSummary();
+  setTimeout(() => { const el = document.getElementById('edit-exname'); if (el) { el.focus(); } }, 50);
 }
 
 let editingExIdx = null;
@@ -1941,6 +2085,7 @@ function formatWorkoutText(w) {
     if (ex.notes) out += '  “' + ex.notes + '”\n';
     out += '\n';
   });
+  if (w.comment && w.comment.trim()) out += 'Comment: ' + w.comment.trim() + '\n';
   return out.trim();
 }
 function copyFormatted() {
@@ -1979,6 +2124,7 @@ function renderHistory() {
           <div class="hist-chips">${ex.sets.map(setChipHtml).join('')}</div>
           ${ex.notes ? `<div class="hist-note">“${escapeHtml(ex.notes)}”</div>` : ''}
         </div>`).join('')}
+      ${w.comment && w.comment.trim() ? `<div class="hist-comment">💬 ${escapeHtml(w.comment.trim())}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -2482,12 +2628,14 @@ function downloadFile(name, mime, content) {
 function csvCell(v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 function exportCSV() {
   const u = unit();
-  const rows = [['Date', 'Workout Type', 'Body Parts', 'Exercise', 'Set', 'Weight (' + u + ')', 'Reps', 'Tags', 'Notes', 'Volume']];
+  const rows = [['Date', 'Workout Type', 'Body Parts', 'Exercise', 'Set', 'Weight (' + u + ')', 'Reps', 'Tags', 'Notes', 'Volume', 'Workout Comment']];
   store.history.slice().reverse().forEach(w => {
     const bp = (w.bodyParts || []).join(', ');
+    let firstRow = true;
     w.exercises.forEach(ex => ex.sets.forEach((s, i) => {
       const vol = (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
-      rows.push([fmtLong(w.dateISO), w.type || '', bp, ex.name, i + 1, s.weight, s.reps, tagsString(s), i === 0 ? (ex.notes || '') : '', vol]);
+      rows.push([fmtLong(w.dateISO), w.type || '', bp, ex.name, i + 1, s.weight, s.reps, tagsString(s), i === 0 ? (ex.notes || '') : '', vol, firstRow ? (w.comment || '') : '']);
+      firstRow = false;
     }));
   });
   if (rows.length === 1) { toast('No workouts to export yet'); return; }
@@ -2510,6 +2658,7 @@ function exportDoc() {
       body += '</ul>';
       if (ex.notes) body += '<p><i>&ldquo;' + escapeHtml(ex.notes) + '&rdquo;</i></p>';
     });
+    if (w.comment && w.comment.trim()) body += '<p><b>Comment:</b> ' + escapeHtml(w.comment.trim()) + '</p>';
   });
   const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Gym Log</title></head>'
     + '<body style="font-family:Calibri,Arial,sans-serif;color:#111;"><h1>Workout Log</h1>' + body + '</body></html>';
