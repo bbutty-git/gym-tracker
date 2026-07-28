@@ -170,10 +170,9 @@
     border: 2px solid var(--pink); background: var(--pink-soft); color: var(--pink);
     font: 800 15px Montserrat,sans-serif; cursor: pointer; touch-action: none;
   }
-  .lift-unlock-fill { position: absolute; inset: 0; width: 0%; background: var(--pink); transition: none; z-index: 0; }
-  .lift-unlock.holding .lift-unlock-fill { width: 100%; transition: width 1.4s linear; }
   .lift-unlock-label { position: relative; z-index: 1; }
-  .lift-unlock.holding .lift-unlock-label { color: #fff; }
+  .lift-unlock.armed { background: var(--pink); color: #fff; }
+  .lift-unlock.armed .lift-unlock-label::after { content: ' — tap again'; }
   .brand-opt {
     display: block; width: 100%; cursor: pointer; font-family: inherit;
     background: var(--pink-soft); border: 1px solid var(--pink-line); color: var(--pink);
@@ -857,11 +856,8 @@
     <div class="lift-lock-title">Screen locked</div>
     <div class="lift-lock-ex" id="lift-lock-ex"></div>
     <div class="lift-lock-sub">Buttons are disabled and the screen won't sleep. Safe to pocket.</div>
-    <button class="lift-unlock" id="lift-unlock"
-      onpointerdown="holdUnlockStart(event)" onpointerup="holdUnlockEnd()"
-      onpointercancel="holdUnlockEnd()" onpointerleave="holdUnlockEnd()">
-      <span class="lift-unlock-fill" id="lift-unlock-fill"></span>
-      <span class="lift-unlock-label">Hold to unlock</span>
+    <button class="lift-unlock" id="lift-unlock" onclick="unlockTap(event)">
+      <span class="lift-unlock-label">Double-tap to unlock</span>
     </button>
   </div>
 </div>
@@ -1274,22 +1270,17 @@ function endLifting() {
   liftLockActive = false;
   releaseWakeLock();
   document.getElementById('lift-lock').classList.remove('open');
-  const btn = document.getElementById('lift-unlock');
-  if (btn) btn.classList.remove('holding');
+  lastUnlockTap = 0;
 }
-let holdUnlockTimer = null;
-function holdUnlockStart(e) {
+// double-tap to unlock: two taps within 450ms. A single pocket tap won't trigger it.
+let lastUnlockTap = 0;
+function unlockTap(e) {
   if (e && e.preventDefault) e.preventDefault();
+  const now = Date.now();
+  if (now - lastUnlockTap < 450) { lastUnlockTap = 0; endLifting(); return; }
+  lastUnlockTap = now;
   const btn = document.getElementById('lift-unlock');
-  if (btn) { void btn.offsetWidth; btn.classList.add('holding'); }  // reflow so the fill animation restarts
-  clearTimeout(holdUnlockTimer);
-  holdUnlockTimer = setTimeout(endLifting, 1400);   // must match the CSS fill transition
-}
-function holdUnlockEnd() {
-  clearTimeout(holdUnlockTimer);
-  holdUnlockTimer = null;
-  const btn = document.getElementById('lift-unlock');
-  if (btn) btn.classList.remove('holding');
+  if (btn) { btn.classList.add('armed'); setTimeout(() => { if (Date.now() - lastUnlockTap >= 450) btn.classList.remove('armed'); }, 500); }
 }
 
 function renderBodyPartRecency() {
