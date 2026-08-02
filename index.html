@@ -300,6 +300,13 @@
   }
   .next-set-btn:active { background: #d91a71; }
   .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .entry-second { display: flex; align-items: center; gap: 8px; }
+  .entry-second .chip-row { flex: 1; min-width: 0; }
+  .entry-clear {
+    flex-shrink: 0; background: none; border: 1px solid rgba(229,83,75,.35); color: var(--dimmer);
+    cursor: pointer; font: 700 11px Montserrat, sans-serif; padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+  }
+  .entry-clear:active { background: rgba(229,83,75,.2); color: var(--text); }
   .chip {
     border: 1px solid rgba(255,255,255,.15); border-radius: 99px; padding: 4px 9px;
     font-size: 9.5px; font-weight: 600; color: var(--dim); white-space: nowrap;
@@ -607,7 +614,10 @@
           <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight">
           <button class="next-set-btn" onclick="logSet()">Next set →</button>
         </div>
-        <div class="chip-row" id="pending-chips"></div>
+        <div class="entry-second">
+          <div class="chip-row" id="pending-chips"></div>
+          <button class="entry-clear" id="entry-clear" onclick="clearEntry()" title="Clear this set">🗑 Clear</button>
+        </div>
       </div>
 
       <textarea id="ex-notes" placeholder="Notes…"></textarea>
@@ -1554,6 +1564,17 @@ function logSet() {
   document.getElementById('in-reps').value = reps;
   document.getElementById('in-weight').value = weight;
   renderSetRows();
+}
+
+// clear the active entry row (the in-progress set) — for when "Next set" prefilled
+// a set you didn't want, or you mistyped and want to start the entry fresh
+function clearEntry() {
+  document.getElementById('in-reps').value = '';
+  document.getElementById('in-weight').value = '';
+  workout.current.pending = newPending();
+  persistDraft();
+  renderSetRows();
+  const el = document.getElementById('in-reps'); if (el) el.focus();
 }
 
 function askDeleteSet(key) {
