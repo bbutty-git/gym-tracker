@@ -1115,7 +1115,7 @@ function unit() { return store.settings.unit || 'lbs'; }
 /* ================= navigation ================= */
 function showScreen(name) {
   if (name !== 'summary') {
-    editingKey = null; editingExIdx = null;              // drop any in-progress inline edit
+    editingKey = null; editingExIdx = null; setEditDraft = null; exNameDraft = null;              // drop any in-progress inline edit
     if (editingHistoryIdx !== null) { editingHistoryIdx = null; workout = null; } // leaving = discard unsaved history edits
   }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -1972,19 +1972,38 @@ function chipButtons(s, ref) {
 // set addressing: 'pending' | 'c<i>' (current exercise) | 'x<e>_<i>' (completed exercise on review)
 function setCtx(key) {
   if (key === 'pending') return { set: workout.current.pending, sets: workout.current.sets, pending: true };
-  if (key[0] === 'c') return { set: workout.current.sets[+key.slice(1)], sets: workout.current.sets };
+  if (key[0] === 'c') {
+    if (!workout || !workout.current) return null;
+    const set = workout.current.sets[+key.slice(1)];
+    return set ? { set, sets: workout.current.sets, setIdx: +key.slice(1) } : null;
+  }
   const m = key.match(/^x(\d+)_(\d+)$/);
+  if (!m || !workout) return null;
   const ex = workout.exercises[+m[1]];
+  if (!ex || !ex.sets[+m[2]]) return null;
   return { set: ex.sets[+m[2]], sets: ex.sets, exIdx: +m[1], setIdx: +m[2] };
 }
 
 let editingKey = null;
+// Live value of the set editor. Inline editors live only in the DOM, but any
+// re-render (tapping another set, changing type/body parts, adding a set…)
+// rebuilds them from the model — which used to silently discard what you had
+// typed and then save the OLD value back. Keeping the in-flight value here
+// makes an edit survive re-renders.
+let setEditDraft = null;
+// same idea for the exercise-name editor on the review screen
+let exNameDraft = null;
+function onSetEditInput() {
+  const r = document.getElementById('edit-reps'), w = document.getElementById('edit-weight');
+  if (r && w) setEditDraft = { reps: r.value, weight: w.value };
+}
 // one row for a committed set — used on the log screen and the review screen
 function setRowHtml(s, key, num) {
   const u = unit();
+  const d = (editingKey === key && setEditDraft) ? setEditDraft : null;
   const vals = editingKey === key
-    ? `<input type="text" inputmode="numeric" id="edit-reps" value="${escapeAttr(String(s.reps))}" placeholder="Reps">
-       <input type="text" inputmode="decimal" id="edit-weight" value="${escapeAttr(String(s.weight))}" placeholder="Weight">
+    ? `<input type="text" inputmode="numeric" id="edit-reps" oninput="onSetEditInput()" value="${escapeAttr(d ? d.reps : String(s.reps))}" placeholder="Reps">
+       <input type="text" inputmode="decimal" id="edit-weight" oninput="onSetEditInput()" value="${escapeAttr(d ? d.weight : String(s.weight))}" placeholder="Weight">
        <button class="next-set-btn" onclick="saveEditSet()">✓ Save</button>`
     : `<div class="reps-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.reps))} <span class="u">reps</span></div>
        <div class="wt-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.weight))} <span class="u">${u}</span></div>
@@ -1999,18 +2018,26 @@ function setRowHtml(s, key, num) {
 }
 
 function startEditSet(key) {
+  if (editingKey && editingKey !== key) saveEditSet();   // commit the set already being edited
   editingKey = key;
+  setEditDraft = null;
   refreshEditors();
   setTimeout(() => { const el = document.getElementById('edit-weight'); if (el) el.focus(); }, 50);
 }
 function saveEditSet() {
   if (!editingKey) return;
   const ctx = setCtx(editingKey);
-  const reps = (document.getElementById('edit-reps') || {}).value || '';
-  const weight = (document.getElementById('edit-weight') || {}).value || '';
-  ctx.set.reps = reps.trim();
-  ctx.set.weight = weight.trim();
+  if (!ctx || !ctx.set) { editingKey = null; setEditDraft = null; return; }  // stale key — bail, never throw
+  const rEl = document.getElementById('edit-reps'), wEl = document.getElementById('edit-weight');
+  // prefer the live inputs; fall back to the draft if a re-render removed them.
+  // if neither exists, leave the set alone rather than blanking it.
+  const src = (rEl && wEl) ? { reps: rEl.value, weight: wEl.value } : setEditDraft;
+  if (src) {
+    ctx.set.reps = String(src.reps).trim();
+    ctx.set.weight = String(src.weight).trim();
+  }
   editingKey = null;
+  setEditDraft = null;
   persistDraft();
   refreshEditors();
 }
@@ -2060,10 +2087,11 @@ function clearEntry() {
 function askDeleteSet(key) {
   uiConfirm('Remove this set?', 'Remove', () => {
     const ctx = setCtx(key);
-    ctx.sets.splice(ctx.setIdx !== undefined ? ctx.setIdx : +key.slice(1), 1);
+    if (!ctx) return;
+    ctx.sets.splice(ctx.setIdx, 1);
     // on the review screen, an exercise with no sets left disappears
     if (ctx.exIdx !== undefined && !ctx.sets.length) workout.exercises.splice(ctx.exIdx, 1);
-    editingKey = null;
+    editingKey = null; setEditDraft = null;
     persistDraft();
     refreshEditors();
   });
@@ -2115,7 +2143,7 @@ function completeWorkout() {
   workout.endedAt = Date.now();
   workout.duration = formatDuration(workout.endedAt - workout.startedAt);
   store.active = workout;
-  editingKey = null; editingExIdx = null;
+  editingKey = null; editingExIdx = null; setEditDraft = null; exNameDraft = null;
   renderSummary();
   showScreen('summary');
 }
@@ -2162,7 +2190,7 @@ function editHistoryWorkout(idx) {
   if (!w) return;
   workout = w;
   editingHistoryIdx = idx;
-  editingKey = null; editingExIdx = null;
+  editingKey = null; editingExIdx = null; setEditDraft = null; exNameDraft = null;
   renderSummary();
   showScreen('summary');
 }
@@ -2180,12 +2208,13 @@ function closeMissing() { document.getElementById('missing-modal').classList.rem
 /* ---------- chip dropdown menus ---------- */
 let chipMenuEl = null;
 function closeChipMenu() { if (chipMenuEl) { chipMenuEl.remove(); chipMenuEl = null; } }
-function chipTarget(key) { return setCtx(key).set; }
+function chipTarget(key) { const c = setCtx(key); return c ? c.set : null; }
 
 function openChipMenu(e, i, kind) {
   e.stopPropagation();
   closeChipMenu();
   const s = chipTarget(i);
+  if (!s) return;
   let options;
   if (kind === 'kind') {
     const cur = kindOf(s);
@@ -2223,6 +2252,7 @@ function openChipMenu(e, i, kind) {
 
 function applyChip(key, kind, v) {
   const ctx = setCtx(key);
+  if (!ctx || !ctx.set) { closeChipMenu(); return; }
   const s = ctx.set;
   if (kind === 'kind') {
     if (v === 'max') {
@@ -2456,8 +2486,8 @@ function renderSummary() {
     const header = editingExIdx === e
       ? `<div class="hd"><div style="flex:1;min-width:0;position:relative;">
            <div style="display:flex;gap:8px;align-items:center;">
-             <input id="edit-exname" value="${escapeAttr(ex.name)}" autocomplete="off"
-               oninput="renderExNameSugg(this.value)"
+             <input id="edit-exname" value="${escapeAttr(exNameDraft !== null ? exNameDraft : ex.name)}" autocomplete="off"
+               oninput="onExNameEditInput(this.value)"
                onkeydown="if(event.key==='Enter'){event.preventDefault();saveEditExName();}"
                style="flex:1;min-width:0;background:var(--deep);border:1px solid var(--pink);border-radius:10px;padding:9px 11px;font:700 14px Montserrat,sans-serif;color:var(--text);outline:none;">
              <button class="next-set-btn" onclick="saveEditExName()">✓ Save</button>
@@ -2506,15 +2536,21 @@ function addExerciseToWorkout() {
 
 let editingExIdx = null;
 function startEditExName(e) {
-  editingKey = null;
+  if (editingKey) saveEditSet();       // don't silently drop a set edit in progress
   editingExIdx = e;
+  exNameDraft = null;
   renderSummary();
   setTimeout(() => { const el = document.getElementById('edit-exname'); if (el) { el.focus(); el.select(); } }, 50);
+}
+function onExNameEditInput(v) {
+  exNameDraft = v;
+  renderExNameSugg(v);
 }
 function saveEditExName() {
   if (editingExIdx === null) return;
   const el = document.getElementById('edit-exname');
-  const val = el ? el.value.trim() : '';
+  const raw = el ? el.value : (exNameDraft !== null ? exNameDraft : '');
+  const val = String(raw || '').trim();
   if (!val) { commitEditExName(''); return; }   // empty → keep old name
   chooseEditExercise(val);
 }
@@ -2546,6 +2582,7 @@ function pickEditExName(name) {
   if (box) box.classList.remove('open');
   const el = document.getElementById('edit-exname');
   if (el) el.value = name;
+  exNameDraft = name;
   chooseEditExercise(name);
 }
 function chooseEditExercise(name) {
@@ -2559,8 +2596,9 @@ function chooseEditExercise(name) {
 function commitEditExName(name) {
   if (editingExIdx === null) return;
   name = (name || '').trim();
-  if (name) workout.exercises[editingExIdx].name = name;
+  if (name && workout.exercises[editingExIdx]) workout.exercises[editingExIdx].name = name;
   editingExIdx = null;
+  exNameDraft = null;
   persistDraft();
   renderSummary();
 }
