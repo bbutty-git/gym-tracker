@@ -152,6 +152,41 @@
   .reco-line + .reco-line { margin-top: 8px; }
   .reco-feel { font-size: 10.5px; font-weight: 800; color: var(--pink); letter-spacing: .03em; }
   .reco-base { font-weight: 600; color: var(--dimmer); }
+  /* load a workout plan */
+  .load-btn {
+    width: 100%; background: var(--surface); border: 1px solid var(--pink-line); border-radius: 14px;
+    padding: 14px; font: 700 13.5px Montserrat, sans-serif; color: var(--pink); cursor: pointer;
+  }
+  .load-btn:active { background: var(--pink-soft); }
+  .load-area {
+    width: 100%; min-height: 132px; resize: vertical; background: var(--deep);
+    border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+    font: 500 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text);
+    outline: none; line-height: 1.5;
+  }
+  .load-area:focus { border-color: var(--pink); }
+  .load-msg { margin-top: 9px; font-size: 12px; font-weight: 600; line-height: 1.5; min-height: 16px; }
+  .load-ok { color: var(--green); }
+  .load-err { color: var(--amber); }
+  .load-list { margin-top: 7px; font-size: 11.5px; font-weight: 600; color: var(--dimmer); line-height: 1.7; }
+  .load-list span { color: var(--pink); }
+  .load-help { margin-top: 12px; font-size: 11.5px; color: var(--dimmer); line-height: 1.65; }
+  .load-help summary { cursor: pointer; font-weight: 700; color: var(--dim); padding: 4px 0; }
+  .load-help code { background: var(--surface); padding: 1px 5px; border-radius: 5px; font-size: 11px; color: var(--text); }
+  .load-help > div { margin-top: 8px; }
+  /* "next up" from a loaded plan */
+  .plan-next {
+    display: flex; align-items: center; gap: 8px; margin-top: 9px;
+    background: var(--deep); border: 1px solid var(--border); border-radius: 10px; padding: 7px 8px 7px 11px;
+  }
+  .plan-next .pn-t { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; color: rgba(255,255,255,.75);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plan-next .pn-n { font-size: 10px; font-weight: 800; color: var(--dimmer); flex-shrink: 0; }
+  .plan-next .pn-skip {
+    flex-shrink: 0; background: none; border: 1px solid var(--border2); color: var(--dimmer);
+    border-radius: 8px; padding: 5px 9px; font: 700 10.5px Montserrat, sans-serif; cursor: pointer;
+  }
+  .plan-next .pn-skip:active { background: var(--surface); color: var(--text); }
   /* 1–5 "how do you feel" scale */
   .feel-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
   .feel-opt {
@@ -574,6 +609,7 @@
     <button class="start-btn" onclick="startWorkout()">
       <div class="t" id="start-title">Start workout</div>
     </button>
+    <button class="load-btn" onclick="openLoadWorkout()">📋 Load a workout plan</button>
     <div class="discard-link" id="home-discard" onclick="discardActive()" style="display:none;">Discard in-progress workout</div>
 
     <div class="deload-card">
@@ -645,6 +681,7 @@
         <div class="ex-count" id="ex-count">EXERCISE 1</div>
         <div class="ex-prev" id="ex-prev"></div>
       </div>
+      <div class="plan-next" id="plan-next" style="display:none;"></div>
       <div class="ex-name-wrap">
         <div class="ex-name-field">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
@@ -831,6 +868,34 @@
       <div class="sheet-close" onclick="closePerf()">✕</div>
     </div>
     <div id="perf-body"></div>
+  </div>
+</div>
+
+<!-- ============ LOAD A WORKOUT PLAN ============ -->
+<div class="modal-backdrop" id="load-modal" onclick="if(event.target===this)closeLoadWorkout()">
+  <div class="modal">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+      <div>
+        <h2>Load a workout</h2>
+        <div class="modal-sub" style="margin-bottom:0;">Paste a plan and every exercise, weight, rep and finisher is pre-filled — then change anything as you lift.</div>
+      </div>
+      <div class="sheet-close" onclick="closeLoadWorkout()" title="Close" aria-label="Close">✕</div>
+    </div>
+    <button class="btn-outline" style="margin:14px 0 10px;" onclick="copyClaudePrompt()">📋 Copy a prompt for Claude</button>
+    <textarea id="load-input" class="load-area" oninput="previewPlan()" placeholder='Paste JSON from Claude, or type:&#10;&#10;Bench Press: 135x10 warmup, 185x8, 185x6 drop&#10;Leg Press: 3 x 200 x 12'></textarea>
+    <div id="load-msg" class="load-msg"></div>
+    <details class="load-help">
+      <summary>Accepted formats</summary>
+      <div>
+        <b>JSON</b> — what the Claude prompt returns (fenced code blocks are fine).<br><br>
+        <b>Shorthand</b> — one exercise per block:<br>
+        <code>Bench Press</code><br><code>135 x 10 warmup</code><br><code>185 x 8</code><br><code>185 x 6 drop</code><br><br>
+        Or inline: <code>Bench Press: 185x8, 185x8</code><br>
+        Repeat sets: <code>Leg Press: 3 x 200 x 12</code> (3 sets of 200×12)<br>
+        Tags: <code>warmup</code>, <code>max</code>, <code>drop</code>, <code>rest-pause</code>, <code>half</code>, <code>assisted</code>
+      </div>
+    </details>
+    <button class="btn-primary" style="margin-top:14px;" onclick="loadPlanNow()">Load workout</button>
   </div>
 </div>
 
@@ -1518,6 +1583,233 @@ function startWorkout() {
 function newCurrent() { return { name: '', notes: '', sets: [], pending: newPending() }; }
 function newPending() { return { type: 'working', max: false, extra: null }; }
 
+/* ================= load a workout plan (paste JSON from Claude, or shorthand) ================= */
+// longest aliases first so "rest pause" wins before "rest"
+const TAG_ALIASES = [
+  ['assisted reps', 'assisted'], ['assisted', 'assisted'], ['assist', 'assisted'],
+  ['rest-pause', 'restpause'], ['rest pause', 'restpause'], ['restpause', 'restpause'], ['rp', 'restpause'],
+  ['drop sets', 'drop'], ['drop set', 'drop'], ['dropset', 'drop'], ['drops', 'drop'], ['drop', 'drop'], ['ds', 'drop'],
+  ['half reps', 'half'], ['halfreps', 'half'], ['half', 'half']
+];
+function normalizeTag(v) {
+  if (!v) return null;
+  const s = String(v).trim().toLowerCase();
+  for (const [alias, key] of TAG_ALIASES) if (s === alias) return key;
+  return null;
+}
+function numStr(v) {
+  if (v === 0) return '0';
+  if (v == null || v === '') return '';
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+  return isFinite(n) ? String(n) : '';
+}
+// one set object in the app's own shape
+function planSet(weight, reps, opts) {
+  opts = opts || {};
+  return {
+    weight: numStr(weight), reps: numStr(reps),
+    type: opts.warmup ? 'warmup' : 'working',
+    max: !!opts.max,
+    extra: normalizeTag(opts.finisher || opts.tag || opts.extra)
+  };
+}
+// ---- text shorthand: "Bench Press" then "185 x 8 drop", or "Leg Press: 3 x 200 x 12" ----
+function parseSetChunk(chunk) {
+  let s = String(chunk || '').trim().toLowerCase().replace(/[×✕]/g, 'x');
+  if (!s) return null;
+  const opts = {};
+  s = s.replace(/\b(warm\s?-?ups?|warmup)\b/g, () => { opts.warmup = true; return ' '; });
+  s = s.replace(/\b(max set|max|pr|top set)\b/g, () => { opts.max = true; return ' '; });
+  for (const [alias, key] of TAG_ALIASES) {
+    const re = new RegExp('(^|[^a-z])' + alias.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '($|[^a-z])');
+    if (re.test(s)) { opts.finisher = key; s = s.replace(re, ' '); break; }
+  }
+  s = s.replace(/\b(lbs?|kgs?|kilos?|pounds?|reps?|sets?|@)\b/g, ' ');
+  const parts = s.split('x').map(t => t.trim()).filter(t => t !== '');
+  if (!parts.length || parts.length > 3) return null;
+  if (!parts.every(p => /^\d+(\.\d+)?$/.test(p))) return null;
+  let count = 1, weight = '', reps = '';
+  if (parts.length === 1) reps = parts[0];                       // bodyweight: just reps
+  else if (parts.length === 2) { weight = parts[0]; reps = parts[1]; }
+  else { count = Math.min(20, parseInt(parts[0], 10)); weight = parts[1]; reps = parts[2]; }
+  const out = [];
+  for (let i = 0; i < Math.max(1, count); i++) out.push(planSet(weight, reps, opts));
+  return out;
+}
+// strip list bullets / numbering, but never digits that are part of a set line
+function cleanExName(s) {
+  return String(s || '').replace(/^\s*[-*•–]\s*/, '').replace(/^\s*\d+[.)]\s+/, '').trim();
+}
+function parsePlanText(text) {
+  const exercises = [];
+  let cur = null;
+  String(text).split(/\r?\n/).forEach(rawLine => {
+    const line = rawLine.trim();
+    if (!line || /^[-=_*#]+$/.test(line)) return;
+    // "Name: 185x8, 185x8"
+    const m = line.match(/^([^:]+):\s*(.+)$/);
+    if (m && parseSetChunk(m[2].split(',')[0])) {
+      cur = { name: cleanExName(m[1]), notes: '', sets: [] };
+      exercises.push(cur);
+      m[2].split(',').forEach(c => { const sets = parseSetChunk(c); if (sets) cur.sets.push(...sets); });
+      return;
+    }
+    // a bare set line belongs to the exercise above it
+    if (cur) {
+      const pieces = line.split(',');
+      const parsed = pieces.map(parseSetChunk);
+      if (parsed.every(Boolean)) { parsed.forEach(sets => cur.sets.push(...sets)); return; }
+    }
+    // otherwise it's a new exercise name (strip bullets / numbering)
+    cur = { name: cleanExName(line), notes: '', sets: [] };
+    if (cur.name) exercises.push(cur); else cur = null;
+  });
+  return exercises.filter(ex => ex.name);
+}
+// ---- main entry: accepts JSON (fenced or bare) or the text shorthand ----
+function parsePlanInput(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return { ok: false, error: 'Paste a workout first.' };
+  let jsonText = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();  // strip Claude's fences
+  let data = null;
+  try { data = JSON.parse(jsonText); } catch (e) { data = null; }
+  let type = null, bodyParts = [], list = null;
+  if (data) {
+    if (Array.isArray(data)) list = data;
+    else {
+      const w = data.workout || data;
+      list = w.exercises || w.items || null;
+      if (w.type && WORKOUT_TYPES.includes(w.type)) type = w.type;
+      if (Array.isArray(w.bodyParts)) bodyParts = w.bodyParts.filter(b => BODY_PARTS.includes(b));
+    }
+    if (!Array.isArray(list)) return { ok: false, error: 'JSON needs an "exercises" array.' };
+    const exercises = [];
+    for (const raw of list) {
+      if (!raw) continue;
+      const name = String(raw.name || raw.exercise || '').trim();
+      if (!name) return { ok: false, error: 'Every exercise needs a "name".' };
+      const sets = [];
+      if (Array.isArray(raw.sets)) {
+        raw.sets.forEach(s => {
+          if (s == null) return;
+          if (typeof s === 'string') { const p = parseSetChunk(s); if (p) sets.push(...p); return; }
+          sets.push(planSet(s.weight != null ? s.weight : raw.weight, s.reps != null ? s.reps : raw.reps, s));
+        });
+      } else if (raw.sets != null) {                       // shorthand: "sets": 4 with weight/reps alongside
+        const n = Math.min(20, Math.max(1, parseInt(raw.sets, 10) || 1));
+        for (let i = 0; i < n; i++) sets.push(planSet(raw.weight, raw.reps, raw));
+      }
+      if (!sets.length) sets.push(planSet(raw.weight, raw.reps, raw));
+      exercises.push({ name, notes: String(raw.notes || '').trim(), sets });
+    }
+    if (!exercises.length) return { ok: false, error: 'No exercises found.' };
+    return { ok: true, plan: { type, bodyParts, exercises } };
+  }
+  // not JSON → shorthand
+  const exercises = parsePlanText(raw);
+  if (!exercises.length) return { ok: false, error: "Couldn't read that. Paste JSON from Claude, or lines like:  Bench Press: 185x8, 185x8" };
+  exercises.forEach(ex => { if (!ex.sets.length) ex.sets.push(planSet('', '')); });
+  return { ok: true, plan: { type: null, bodyParts: [], exercises } };
+}
+
+/* ---------- the loaded plan as a queue the log screen walks through ---------- */
+function openLoadWorkout() {
+  document.getElementById('load-input').value = '';
+  document.getElementById('load-msg').innerHTML = '';
+  document.getElementById('load-modal').classList.add('open');
+}
+function closeLoadWorkout() { document.getElementById('load-modal').classList.remove('open'); }
+function previewPlan() {
+  const el = document.getElementById('load-msg');
+  const txt = document.getElementById('load-input').value;
+  if (!txt.trim()) { el.innerHTML = ''; return; }
+  const r = parsePlanInput(txt);
+  if (!r.ok) { el.innerHTML = `<span class="load-err">${escapeHtml(r.error)}</span>`; return; }
+  const nEx = r.plan.exercises.length;
+  const nSets = r.plan.exercises.reduce((n, ex) => n + ex.sets.length, 0);
+  const meta = [r.plan.type, (r.plan.bodyParts || []).join(', ')].filter(Boolean).join(' · ');
+  el.innerHTML = `<span class="load-ok">✓ ${nEx} exercise${nEx !== 1 ? 's' : ''}, ${nSets} set${nSets !== 1 ? 's' : ''}${meta ? ' — ' + escapeHtml(meta) : ''}</span>` +
+    `<div class="load-list">${r.plan.exercises.map(ex => `${escapeHtml(ex.name)} <span>${ex.sets.length}</span>`).join('<br>')}</div>`;
+}
+function loadPlanNow() {
+  const r = parsePlanInput(document.getElementById('load-input').value);
+  if (!r.ok) { toast(r.error); previewPlan(); return; }
+  const go = () => { closeLoadWorkout(); applyPlan(r.plan); };
+  if (store.active && store.active.exercises &&
+      (store.active.exercises.length || (store.active.current && store.active.current.sets.length))) {
+    uiConfirm('Replace the in-progress workout with this plan?', 'Replace', go);
+  } else go();
+}
+function applyPlan(plan) {
+  workout = {
+    dateISO: homeDateISO, startedAt: Date.now(), exercises: [],
+    current: newCurrent(), bodyParts: plan.bodyParts || [],
+    plan: plan.exercises.map(ex => ({ name: ex.name, notes: ex.notes || '', sets: ex.sets.map(s => Object.assign({}, s)) }))
+  };
+  if (plan.type) workout.type = plan.type;
+  loadNextPlanned();
+  store.active = workout;
+  openLogScreen();
+  renderRecoNote();
+  toast('Plan loaded — edit anything as you go');
+}
+// pull the next planned exercise into the log screen, sets pre-filled and fully editable
+function loadNextPlanned() {
+  if (!workout || !workout.plan || !workout.plan.length) return false;
+  const p = workout.plan.shift();
+  workout.current = { name: p.name, notes: p.notes || '', sets: (p.sets || []).map(s => Object.assign({}, s)), pending: newPending() };
+  return true;
+}
+function skipPlanned() {
+  if (!workout || !workout.plan || !workout.plan.length) return;
+  const next = workout.plan[0].name;
+  workout.plan.shift();
+  persistDraft();
+  renderPlanNext();
+  toast('Skipped ' + next);
+}
+function renderPlanNext() {
+  const el = document.getElementById('plan-next');
+  if (!el) return;
+  const left = (workout && workout.plan) ? workout.plan.length : 0;
+  if (!left) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = `<span class="pn-t">Next up · ${escapeHtml(workout.plan[0].name)}</span>` +
+    `<span class="pn-n">${left} left</span>` +
+    `<button class="pn-skip" onclick="skipPlanned()">Skip</button>`;
+}
+// a prompt the user can paste into Claude to get a plan back in the right shape
+function copyClaudePrompt() {
+  const known = knownExerciseNames();
+  const names = [...new Set([...(known.recent || []), ...(known.preset || [])])].slice(0, 60);
+  const p = `Give me a workout as JSON ONLY — no markdown fences, no commentary — in exactly this shape:
+
+{
+  "type": "Hypertrophy",
+  "bodyParts": ["Chest", "Triceps"],
+  "exercises": [
+    {"name": "Bench Press", "notes": "", "sets": [
+      {"weight": 135, "reps": 10, "warmup": true},
+      {"weight": 185, "reps": 8},
+      {"weight": 185, "reps": 6, "finisher": "drop"}
+    ]}
+  ]
+}
+
+Rules:
+- "type" is one of: ${WORKOUT_TYPES.join(', ')}
+- "bodyParts" from: ${BODY_PARTS.join(', ')}
+- every set needs "weight" (number, ${unit()}) and "reps" (number); use 0 weight for bodyweight
+- optional per set: "warmup": true, "max": true, "finisher": one of "drop", "restpause", "half", "assisted"
+- prefer these exercise names where they fit, so it matches my history:
+${names.join(', ')}
+
+The workout I want: `;
+  navigator.clipboard.writeText(p)
+    .then(() => toast('Prompt copied — paste it into Claude ✓'))
+    .catch(() => toast('Copy failed'));
+}
+
 function discardActive() {
   uiConfirm('Discard the in-progress workout? Logged sets will be lost.', 'Discard', () => {
     store.active = null; workout = null; renderHome();
@@ -1661,6 +1953,7 @@ function renderExerciseCard() {
   document.getElementById('ac-list').classList.remove('open');
   if (!workout.current.pending) workout.current.pending = newPending();
   renderSetRows();
+  renderPlanNext();
 }
 
 // one combined selector per set: Warm up set / Working set / Max Set
@@ -1799,10 +2092,11 @@ function nextExercise() {
   }
   workout.exercises.push({ name: cur.name, notes: cur.notes, sets: cur.sets });
   workout.current = newCurrent();
+  const fromPlan = loadNextPlanned();      // a loaded plan feeds the next exercise automatically
   store.active = workout;
   renderExerciseCard();
   toast(cur.name + ' saved ✓');
-  setTimeout(() => document.getElementById('ex-name').focus(), 60);
+  if (!fromPlan) setTimeout(() => document.getElementById('ex-name').focus(), 60);
 }
 
 // "Complete workout" now opens an editable review — nothing is saved to history
@@ -1838,6 +2132,7 @@ function recordWorkout(force) {
 
   workout.synced = false;
   workout.editedAt = Date.now();   // newest copy wins when devices merge
+  delete workout.plan;             // any unused planned exercises aren't part of the record
 
   if (editingHistoryIdx !== null) {
     const hist = store.history;
