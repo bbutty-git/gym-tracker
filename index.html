@@ -148,6 +148,7 @@
     border: 1px solid var(--pink-line); border-radius: 12px; padding: 11px 13px;
     font-size: 12.5px; font-weight: 600; line-height: 1.5; color: var(--text);
   }
+  .reco-redo { margin-top: 7px; font-size: 11.5px; font-weight: 700; color: var(--pink); cursor: pointer; padding: 4px 0; }
   /* lifting lock */
   .lift-btn {
     width: 100%; background: var(--deep); border: 1px solid var(--pink-line);
@@ -1215,37 +1216,49 @@ function lastMuscleWorkout(m) {
 function hadFinisherForMuscle(w, m) {
   return (w.exercises || []).some(ex => primaryMuscle(ex.name) === m && ex.sets.some(s => EXTRAS[s.extra]));
 }
-// recommendation for m this session, escalating finisher-first:
-//   recovered early → add a finisher (if none last time) else +1 working set
-//   still sore      → drop the finisher (if any) else −1 working set
-function recoveryRecommendation(m) {
+// what the last session for this muscle looked like — the baseline we adjust from,
+// and the context shown while answering the check-in
+function lastSessionSummary(m) {
   const last = lastMuscleWorkout(m);
   if (!last) return null;
-  if (LIGHT_TYPES.includes(last.type)) return null;  // deload/recovery has intentionally low volume — bad baseline
-  const ans = (last.recovery || {})[m];
+  const sets = workingSetsForMuscle(last, m);
+  const fin = hadFinisherForMuscle(last, m);
+  return { workout: last, sets, fin,
+    text: `${sets} working set${sets !== 1 ? 's' : ''}${fin ? ' + a finisher' : ''} · ${daysAgoLabel(last.dateISO)}` };
+}
+// How you feel RIGHT NOW (this session's answer) drives THIS session's plan;
+// the last session for that muscle only supplies the baseline volume. Escalates
+// finisher-first, so the smaller adjustment happens before adding/removing a set:
+//   still sore      → drop the finisher (if there was one) else −1 working set  [easier than last time]
+//   recovered early → add a finisher (if there wasn't one) else +1 working set  [harder than last time]
+function recoveryRecommendation(m) {
+  const ans = ((workout && workout.recovery) || {})[m];   // today's answer, not last session's
   if (!ans || !RECOVERY[ans] || RECOVERY[ans].delta === 0) return null;
+  const last = lastMuscleWorkout(m);
+  if (!last) return null;                                  // nothing to compare against yet
+  if (LIGHT_TYPES.includes(last.type)) return null;        // deload/recovery volume is a bad baseline
   const base = workingSetsForMuscle(last, m);
   if (!base) return null;
   const hadFin = hadFinisherForMuscle(last, m);
-  if (RECOVERY[ans].delta > 0) {                       // recovered early → add volume
-    if (!hadFin) return { muscle: m, kind: 'addFinisher', base, target: base };
-    return { muscle: m, kind: 'addSet', base, target: base + 1 };
+  if (RECOVERY[ans].delta < 0) {                           // still sore → go easier than last time
+    if (hadFin) return { muscle: m, ans, kind: 'removeFinisher', base, target: base };
+    if (base <= 1) return null;                            // can't go below one set
+    return { muscle: m, ans, kind: 'removeSet', base, target: base - 1 };
   }
-  // still sore → pull volume back
-  if (hadFin) return { muscle: m, kind: 'removeFinisher', base, target: base };
-  if (base <= 1) return null;                            // can't go below one set
-  return { muscle: m, kind: 'removeSet', base, target: base - 1 };
+  // recovered early → you had capacity to spare, push a little harder
+  if (!hadFin) return { muscle: m, ans, kind: 'addFinisher', base, target: base };
+  return { muscle: m, ans, kind: 'addSet', base, target: base + 1 };
 }
 function recPhrase(r) {
   switch (r.kind) {
-    case 'addSet':        return `aim for ${r.target} working sets (was ${r.base})`;
-    case 'removeSet':     return `drop to ${r.target} working set${r.target !== 1 ? 's' : ''} (was ${r.base})`;
-    case 'addFinisher':   return `add a finisher (drop set / rest-pause / half reps) to your ${r.base} set${r.base !== 1 ? 's' : ''}`;
-    case 'removeFinisher':return `skip the finisher this time — keep your ${r.base} set${r.base !== 1 ? 's' : ''}, but not to failure`;
+    case 'addSet':         return `go up to ${r.target} working sets today (was ${r.base})`;
+    case 'removeSet':      return `drop to ${r.target} working set${r.target !== 1 ? 's' : ''} today (was ${r.base})`;
+    case 'addFinisher':    return `keep ${r.base} set${r.base !== 1 ? 's' : ''} but add a finisher (drop set / rest-pause / half reps)`;
+    case 'removeFinisher': return `keep ${r.base} set${r.base !== 1 ? 's' : ''} but skip the finisher — stop short of failure`;
   }
   return '';
 }
-function recWasEarly(r) { return r.kind === 'addSet' || r.kind === 'addFinisher'; }
+function recReason(r) { return r.ans === 'sore' ? 'still sore' : 'recovered early'; }
 
 let recoveryQueue = [];
 // fired from the body-parts "Done" button on the log screen
@@ -1263,22 +1276,33 @@ function nextRecovery() {
     return;
   }
   const m = recoveryQueue[0];
-  const rec = recoveryRecommendation(m);
   document.getElementById('recovery-sub').textContent = 'Since your last ' + m + ' session';
-  document.getElementById('recovery-title').textContent = 'How did your ' + m + ' feel?';
+  document.getElementById('recovery-title').textContent = 'How does your ' + m + ' feel today?';
+  // context, not a recommendation — the recommendation depends on the answer we're about to get
+  const ctx = lastSessionSummary(m);
   const recEl = document.getElementById('recovery-rec');
-  if (rec) {
+  if (ctx) {
     recEl.style.display = 'block';
-    recEl.innerHTML = `💡 Last ${escapeHtml(m)} session you recovered ${recWasEarly(rec) ? 'early' : 'while still sore'} — ${recPhrase(rec)}.`;
+    recEl.innerHTML = `📋 Last ${escapeHtml(m)} session: <b>${escapeHtml(ctx.text)}</b>`;
   } else { recEl.style.display = 'none'; recEl.innerHTML = ''; }
   document.getElementById('recovery-modal').classList.add('open');
 }
 function answerRecovery(ans) {
   const m = recoveryQueue.shift();
   if (m && ans) { workout.recovery = workout.recovery || {}; workout.recovery[m] = ans; persistDraft(); }
+  renderRecoNote();          // today's plan updates as soon as the answer lands
   nextRecovery();
 }
-// persistent note on the log screen with this session's recommendations
+// re-open the check-in for today's muscles so an answer can be changed
+function redoRecovery() {
+  if (!workout) return;
+  workout.recovery = {};
+  recoveryQueue = (workout.bodyParts || []).slice();
+  persistDraft();
+  renderRecoNote();
+  nextRecovery();
+}
+// persistent note on the log screen with THIS session's plan, based on how you feel today
 function renderRecoNote() {
   const el = document.getElementById('reco-note');
   if (!el) return;
@@ -1286,7 +1310,8 @@ function renderRecoNote() {
   if (!recs.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'flex';
   el.innerHTML = '<span style="flex-shrink:0;">💡</span><div>' +
-    recs.map(r => `<b>${escapeHtml(r.muscle)}</b> — ${recPhrase(r)}`).join('<br>') + '</div>';
+    recs.map(r => `<b>${escapeHtml(r.muscle)}</b> (${escapeHtml(recReason(r))}) — ${recPhrase(r)}`).join('<br>') +
+    '<div class="reco-redo" onclick="redoRecovery()">Change how you feel ›</div></div>';
 }
 
 /* ======= "what did I do last time" — past sessions for today's muscle groups ======= */
