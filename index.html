@@ -2130,6 +2130,7 @@ function nextExercise() {
 // "Complete workout" now opens an editable review — nothing is saved to history
 // until "Record Workout" is tapped. The workout stays active (resumable) meanwhile.
 function completeWorkout() {
+  if (editingKey) saveEditSet();       // don't lose an edit that's open when you tap Complete
   captureCurrent();
   const cur = workout.current;
   if (cur.name && cur.sets.length) {
@@ -2151,6 +2152,7 @@ function completeWorkout() {
 function recordWorkout(force) {
   if (!workout || !workout.exercises.length) { toast('Nothing to record'); return; }
   if (editingKey) saveEditSet();
+  if (editingExIdx !== null) saveEditExName();   // commit an open rename too
 
   if (!force) {
     const missBp = !(workout.bodyParts && workout.bodyParts.length);
