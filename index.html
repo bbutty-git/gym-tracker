@@ -47,7 +47,9 @@
   #app {
     width: 100%; max-width: 430px; min-height: 100dvh;
     display: flex; flex-direction: column;
-    padding: 28px 20px calc(24px + env(safe-area-inset-bottom));
+    /* top pad must clear the status bar / Dynamic Island in the installed PWA,
+       otherwise the page-head buttons (✕ / 🏠) sit under it and can't be tapped */
+    padding: max(28px, calc(env(safe-area-inset-top) + 12px)) 20px calc(24px + env(safe-area-inset-bottom));
   }
   .screen { display: none; flex-direction: column; flex: 1; gap: 18px; }
   .screen.active { display: flex; }
@@ -60,7 +62,7 @@
   .head-actions { display: flex; align-items: center; gap: 10px; }
   .icon-btn {
     background: var(--surface); border: 1px solid var(--border); color: rgba(255,255,255,.6);
-    width: 36px; height: 36px; border-radius: 12px; font-size: 15px;
+    width: 44px; height: 44px; border-radius: 13px; font-size: 17px;
     display: grid; place-items: center; cursor: pointer; flex-shrink: 0;
   }
   .icon-btn:active { background: #24242b; }
@@ -250,7 +252,7 @@
     padding: 13px 0; font: 600 15px Montserrat, sans-serif; color: var(--text);
   }
   .ex-name-field input::placeholder { color: var(--dimmer); }
-  .ex-clear { background: none; border: none; color: var(--dimmer); font-size: 13px; cursor: pointer; padding: 4px; display: none; }
+  .ex-clear { background: none; border: none; color: var(--dimmer); font-size: 15px; cursor: pointer; padding: 10px; margin: -6px; display: none; }
   .ex-clear.show { display: block; }
   .ac-list {
     position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 5;
@@ -328,6 +330,26 @@
     padding: 2px 0; font-size: 13px; font-weight: 600; color: var(--pink); cursor: pointer;
     background: none; border: none; font-family: inherit;
   }
+  /* "what did I do last time" button on the log screen */
+  .recent-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+    background: var(--surface); border: 1px solid var(--pink-line); border-radius: 12px;
+    padding: 13px; font: 700 13px Montserrat, sans-serif; color: var(--pink);
+    cursor: pointer; text-align: center;
+  }
+  .recent-btn:active { background: var(--pink-soft); }
+  .rs-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 13px 14px; }
+  .rs-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .rs-date { font-size: 13px; font-weight: 800; }
+  .rs-ago { font-size: 11px; font-weight: 700; color: var(--dimmer); flex-shrink: 0; }
+  .rs-meta { margin-top: 3px; font-size: 11px; font-weight: 600; }
+  .rs-ex { margin-top: 11px; }
+  .rs-ex-name {
+    display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700;
+    color: rgba(255,255,255,.9); cursor: pointer; padding: 3px 0;
+  }
+  .rs-ex-name .plus { color: var(--pink); font-size: 14px; font-weight: 800; flex-shrink: 0; }
+  .rs-hint { font-size: 11.5px; font-weight: 500; color: var(--dimmer); padding: 0 20px 4px; line-height: 1.5; }
 
   .chip-menu {
     position: fixed; z-index: 70; background: #232329; border: 1px solid var(--border2);
@@ -403,7 +425,7 @@
   .maxlift-row .ml-val .x { font-size: 10px; font-weight: 600; color: var(--dim); }
   .maxlift-row .ml-date { font-size: 10.5px; font-weight: 500; color: var(--dimmer); width: 46px; text-align: right; flex-shrink: 0; }
   .maxlift-row .ml-none { font-size: 12px; font-weight: 500; color: var(--dimmer); }
-  .maxlift-row .ml-rm { color: var(--dimmer); font-size: 13px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .maxlift-row .ml-rm { color: var(--dimmer); font-size: 15px; cursor: pointer; padding: 10px 12px; margin: -8px -6px; flex-shrink: 0; }
   .maxlift-add { display: flex; align-items: center; gap: 10px; padding: 11px 14px; }
   .maxlift-add input {
     flex: 1; min-width: 0; background: var(--deep); border: 1px solid rgba(255,255,255,.1);
@@ -442,9 +464,15 @@
   }
   .sheet .grab { padding: 14px 20px 0; display: grid; place-items: center; }
   .sheet .grab div { width: 40px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.2); }
-  .sheet-head { padding: 18px 20px 0; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .sheet-head { padding: 18px 20px 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .sheet-head h2 { font-size: 20px; font-weight: 800; margin-top: 4px; }
-  .sheet-close { font-size: 14px; font-weight: 600; color: var(--dim); cursor: pointer; padding: 4px; }
+  /* 44px target — the old 14px+4px padding was far too small to hit reliably */
+  .sheet-close {
+    font-size: 17px; font-weight: 600; color: var(--dim); cursor: pointer; flex-shrink: 0;
+    width: 44px; height: 44px; margin: -6px -8px 0 0; border-radius: 12px;
+    display: grid; place-items: center; background: var(--surface); border: 1px solid var(--border);
+  }
+  .sheet-close:active { background: #24242b; color: var(--text); }
   .maxsets-block { padding: 18px 20px 0; }
   .maxsets-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; letter-spacing: .06em; color: var(--pink); }
   .maxsets-list { margin-top: 10px; background: var(--surface); border: 1px solid rgba(247,37,133,.25); border-radius: 16px; overflow: hidden; }
@@ -588,6 +616,8 @@
       <div class="bp-pills" id="bp-pills"></div>
       <div class="bp-done" onclick="doneBodyParts()">Done</div>
     </div>
+
+    <button class="recent-btn" id="recent-btn" onclick="openRecent()" style="display:none;"></button>
 
     <div class="reco-note" id="reco-note" style="display:none;"></div>
 
@@ -782,6 +812,21 @@
       <div class="sheet-close" onclick="closePerf()">✕</div>
     </div>
     <div id="perf-body"></div>
+  </div>
+</div>
+
+<!-- ============ RECENT SESSIONS (same muscle groups) ============ -->
+<div class="sheet-backdrop" id="recent-sheet" onclick="if(event.target===this)closeRecent()">
+  <div class="sheet">
+    <div class="grab"><div></div></div>
+    <div class="sheet-head">
+      <div>
+        <div class="section-label" style="color:var(--dim);">Last sessions</div>
+        <h2 id="recent-title">Recent</h2>
+      </div>
+      <div class="sheet-close" onclick="closeRecent()" title="Close" aria-label="Close">✕</div>
+    </div>
+    <div id="recent-body"></div>
   </div>
 </div>
 
@@ -1244,6 +1289,82 @@ function renderRecoNote() {
     recs.map(r => `<b>${escapeHtml(r.muscle)}</b> — ${recPhrase(r)}`).join('<br>') + '</div>';
 }
 
+/* ======= "what did I do last time" — past sessions for today's muscle groups ======= */
+// past workouts sharing at least one body part with the session in progress
+function recentSessionsForParts(parts, limit) {
+  if (!parts || !parts.length) return [];
+  const want = parts.map(p => p.toLowerCase());
+  const out = [];
+  for (const w of store.history) {           // newest-first
+    const bp = effectiveBodyParts(w) || [];
+    if (bp.some(p => want.includes(String(p).toLowerCase()))) out.push(w);
+    if (out.length >= (limit || 5)) break;
+  }
+  return out;
+}
+function renderRecentBtn() {
+  const btn = document.getElementById('recent-btn');
+  if (!btn) return;
+  const parts = (workout && workout.bodyParts) || [];
+  if (!parts.length) { btn.style.display = 'none'; return; }
+  const n = recentSessionsForParts(parts, 5).length;
+  if (!n) { btn.style.display = 'none'; return; }
+  btn.style.display = 'flex';
+  btn.innerHTML = `📋 What I did last — <b>${escapeHtml(parts.join(', '))}</b>`;
+}
+function daysAgoLabel(iso) {
+  if (!iso) return '';
+  const d = todayDayIndex() - isoDayIndex(iso);
+  if (d <= 0) return 'today';
+  if (d === 1) return 'yesterday';
+  return d + ' days ago';
+}
+function openRecent() {
+  const parts = (workout && workout.bodyParts) || [];
+  if (!parts.length) { toast('Pick body parts first'); return; }
+  const sessions = recentSessionsForParts(parts, 5);
+  document.getElementById('recent-title').textContent = parts.join(', ');
+  const body = document.getElementById('recent-body');
+  if (!sessions.length) {
+    body.innerHTML = `<div class="sheet-empty">No past sessions for <b>${escapeHtml(parts.join(', '))}</b> yet.</div>`;
+  } else {
+    body.innerHTML =
+      `<div class="rs-hint">Tap an exercise to load it into the name field.</div>
+       <div class="hist-block">` +
+      sessions.map(w => `
+        <div class="rs-card">
+          <div class="rs-head">
+            <div class="rs-date">${escapeHtml(fmtMed(w))}</div>
+            <div class="rs-ago">${escapeHtml(daysAgoLabel(w.dateISO))}</div>
+          </div>
+          ${workoutMetaStr(w) ? `<div class="rs-meta" style="color:${LIGHT_TYPES.includes(w.type) ? 'var(--amber)' : 'var(--pink)'};">${escapeHtml(workoutMetaStr(w))}</div>` : ''}
+          ${(w.exercises || []).map(ex => `
+            <div class="rs-ex">
+              <div class="rs-ex-name" onclick="pickRecentExercise(this.dataset.name)" data-name="${escapeAttr(ex.name || '')}">
+                <span class="plus">+</span>${escapeHtml(ex.name || '')}
+              </div>
+              <div class="hist-chips">${(ex.sets || []).map(setChipHtml).join('')}</div>
+            </div>`).join('')}
+        </div>`).join('') +
+      `</div>`;
+  }
+  document.getElementById('recent-sheet').classList.add('open');
+}
+function closeRecent() { document.getElementById('recent-sheet').classList.remove('open'); }
+// load a past exercise name into the log screen — only when the current slot is free,
+// so we never clobber an exercise that already has sets logged against it
+function pickRecentExercise(name) {
+  if (!name) return;
+  if (workout && workout.current && workout.current.sets.length) {
+    toast('Tap "Next exercise" first');
+    return;
+  }
+  closeRecent();
+  // names from history are already brand-suffixed, so skip the brand picker
+  finishPickExercise(name);
+  persistDraft();
+}
+
 /* ================= lifting lock (freeze screen + keep it awake) ================= */
 let liftLockActive = false;
 let wakeLock = null;
@@ -1366,6 +1487,7 @@ function renderWorkoutMeta() {
   const bp = workout.bodyParts || [];
   if (bp.length) { bv.textContent = bp.join(', '); bv.classList.remove('placeholder'); }
   else { bv.textContent = 'Select…'; bv.classList.add('placeholder'); }
+  renderRecentBtn();
 }
 
 function openTypeMenu(e) {
