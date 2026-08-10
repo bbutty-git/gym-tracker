@@ -149,6 +149,24 @@
     font-size: 12.5px; font-weight: 600; line-height: 1.5; color: var(--text);
   }
   .reco-redo { margin-top: 7px; font-size: 11.5px; font-weight: 700; color: var(--pink); cursor: pointer; padding: 4px 0; }
+  .reco-line + .reco-line { margin-top: 8px; }
+  .reco-feel { font-size: 10.5px; font-weight: 800; color: var(--pink); letter-spacing: .03em; }
+  .reco-base { font-weight: 600; color: var(--dimmer); }
+  /* 1–5 "how do you feel" scale */
+  .feel-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+  .feel-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer;
+    background: var(--pink-soft); border: 1px solid var(--pink-line); border-radius: 12px;
+    padding: 11px 2px 8px; font-family: inherit;
+  }
+  .feel-opt:active { background: var(--pink); }
+  .feel-opt .fe { font-size: 20px; line-height: 1; }
+  .feel-opt .fn { font-size: 12px; font-weight: 800; color: var(--pink); }
+  .feel-opt:active .fn { color: #fff; }
+  .feel-legend {
+    display: flex; justify-content: space-between; margin-top: 7px;
+    font-size: 10.5px; font-weight: 700; color: var(--dimmer); letter-spacing: .02em;
+  }
   /* lifting lock */
   .lift-btn {
     width: 100%; background: var(--deep); border: 1px solid var(--pink-line);
@@ -876,12 +894,15 @@
     <div class="section-label" id="recovery-sub">Since your last session</div>
     <div id="recovery-title" style="font-size:17px;font-weight:800;margin:4px 0 12px;"></div>
     <div id="recovery-rec" style="display:none;font-size:12.5px;font-weight:600;line-height:1.5;background:rgba(247,37,133,.08);border:1px solid var(--pink-line);border-radius:10px;padding:10px 12px;margin-bottom:12px;color:var(--text);"></div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button class="brand-opt" onclick="answerRecovery('early')">I recovered days ago</button>
-      <button class="brand-opt" onclick="answerRecovery('ontime')">I recovered right on time</button>
-      <button class="brand-opt" onclick="answerRecovery('sore')">I was still sore</button>
-      <button class="brand-opt none" onclick="answerRecovery(null)">Skip</button>
+    <div class="feel-scale">
+      <button class="feel-opt" onclick="answerRecovery(1)"><span class="fe">😖</span><span class="fn">1</span></button>
+      <button class="feel-opt" onclick="answerRecovery(2)"><span class="fe">😕</span><span class="fn">2</span></button>
+      <button class="feel-opt" onclick="answerRecovery(3)"><span class="fe">😐</span><span class="fn">3</span></button>
+      <button class="feel-opt" onclick="answerRecovery(4)"><span class="fe">🙂</span><span class="fn">4</span></button>
+      <button class="feel-opt" onclick="answerRecovery(5)"><span class="fe">💪</span><span class="fn">5</span></button>
     </div>
+    <div class="feel-legend"><span>1 · really bad</span><span>5 · really good</span></div>
+    <button class="brand-opt none" style="margin-top:12px;" onclick="answerRecovery(null)">Skip</button>
   </div>
 </div>
 
@@ -1193,12 +1214,17 @@ function primaryMuscle(name) {
   return null;
 }
 
-/* ---------- recovery feedback → working-set recommendation ---------- */
-const RECOVERY = {
-  early:  { label: 'I recovered days ago', delta: +1 },
-  ontime: { label: 'I recovered right on time', delta: 0 },
-  sore:   { label: 'I was still sore', delta: -1 }
-};
+/* ---------- "how do you feel" 1–5 → concrete set + finisher targets ---------- */
+const FEEL_LABEL = { 1: 'really bad', 2: 'bad', 3: 'neutral', 4: 'good', 5: 'really good' };
+// legacy 3-option answers stored before the 1–5 scale
+const LEGACY_FEEL = { sore: 2, ontime: 3, early: 4 };
+function feelValue(ans) {
+  if (ans == null) return null;
+  if (typeof ans === 'number') return (ans >= 1 && ans <= 5) ? ans : null;
+  if (LEGACY_FEEL[ans]) return LEGACY_FEEL[ans];
+  const n = parseInt(ans, 10);
+  return (n >= 1 && n <= 5) ? n : null;
+}
 // working sets (type 'working', incl. max sets) whose primary muscle is m, in one workout
 function workingSetsForMuscle(w, m) {
   let n = 0;
@@ -1213,52 +1239,64 @@ function lastMuscleWorkout(m) {
   return null;
 }
 // a "finisher" = a working set carrying an intensity tag (Drop Sets / Rest-Pause / Half Reps / Assisted Reps)
-function hadFinisherForMuscle(w, m) {
-  return (w.exercises || []).some(ex => primaryMuscle(ex.name) === m && ex.sets.some(s => EXTRAS[s.extra]));
+function finisherSetsForMuscle(w, m) {
+  let n = 0;
+  (w.exercises || []).forEach(ex => {
+    if (primaryMuscle(ex.name) === m) n += ex.sets.filter(s => s.type === 'working' && EXTRAS[s.extra]).length;
+  });
+  return n;
 }
 // what the last session for this muscle looked like — the baseline we adjust from,
 // and the context shown while answering the check-in
+function volumeText(sets, fins) {
+  return `${sets} working set${sets !== 1 ? 's' : ''}` +
+    (fins ? ` + ${fins} finisher${fins !== 1 ? 's' : ''}` : ', no finishers');
+}
 function lastSessionSummary(m) {
   const last = lastMuscleWorkout(m);
   if (!last) return null;
   const sets = workingSetsForMuscle(last, m);
-  const fin = hadFinisherForMuscle(last, m);
-  return { workout: last, sets, fin,
-    text: `${sets} working set${sets !== 1 ? 's' : ''}${fin ? ' + a finisher' : ''} · ${daysAgoLabel(last.dateISO)}` };
+  const fins = finisherSetsForMuscle(last, m);
+  return { workout: last, sets, fins,
+    text: `${volumeText(sets, fins)} · ${daysAgoLabel(last.dateISO)}` };
 }
-// How you feel RIGHT NOW (this session's answer) drives THIS session's plan;
-// the last session for that muscle only supplies the baseline volume. Escalates
-// finisher-first, so the smaller adjustment happens before adding/removing a set:
-//   still sore      → drop the finisher (if there was one) else −1 working set  [easier than last time]
-//   recovered early → add a finisher (if there wasn't one) else +1 working set  [harder than last time]
+// How you feel RIGHT NOW (1–5, this session's answer) sets THIS session's targets;
+// the last session for that muscle supplies the baseline to adjust from.
+//   1 really bad  → −2 sets and drop ALL finishers
+//   2 bad         → −1 set and −1 finisher
+//   3 neutral     → repeat last session
+//   4 good        → +1  (1 more finisher, or 1 more set if every set is already a finisher)
+//   5 really good → +2  (2 more finishers, spilling over into sets when there's no room)
+// Finishers are a subset of the sets, so "add a finisher" = make a plain set a to-failure
+// one; once none are left to convert, extra work has to come as additional sets.
 function recoveryRecommendation(m) {
-  const ans = ((workout && workout.recovery) || {})[m];   // today's answer, not last session's
-  if (!ans || !RECOVERY[ans] || RECOVERY[ans].delta === 0) return null;
+  const feel = feelValue(((workout && workout.recovery) || {})[m]);   // today's answer
+  if (!feel) return null;
   const last = lastMuscleWorkout(m);
   if (!last) return null;                                  // nothing to compare against yet
   if (LIGHT_TYPES.includes(last.type)) return null;        // deload/recovery volume is a bad baseline
-  const base = workingSetsForMuscle(last, m);
-  if (!base) return null;
-  const hadFin = hadFinisherForMuscle(last, m);
-  if (RECOVERY[ans].delta < 0) {                           // still sore → go easier than last time
-    if (hadFin) return { muscle: m, ans, kind: 'removeFinisher', base, target: base };
-    if (base <= 1) return null;                            // can't go below one set
-    return { muscle: m, ans, kind: 'removeSet', base, target: base - 1 };
+  const baseSets = workingSetsForMuscle(last, m);
+  if (!baseSets) return null;
+  const baseFins = finisherSetsForMuscle(last, m);
+  let sets = baseSets, fins = baseFins;
+  if (feel === 1)      { sets = baseSets - 2; fins = 0; }
+  else if (feel === 2) { sets = baseSets - 1; fins = baseFins - 1; }
+  else if (feel >= 4)  {
+    const want = feel === 5 ? 2 : 1;
+    const room = Math.max(0, sets - fins);                  // plain sets available to convert
+    const addFins = Math.min(want, room);
+    fins += addFins;
+    sets += (want - addFins);                               // no room left → add real sets
   }
-  // recovered early → you had capacity to spare, push a little harder
-  if (!hadFin) return { muscle: m, ans, kind: 'addFinisher', base, target: base };
-  return { muscle: m, ans, kind: 'addSet', base, target: base + 1 };
+  sets = Math.max(1, sets);                                 // never recommend zero sets
+  fins = Math.max(0, Math.min(fins, sets));                 // can't have more finishers than sets
+  if (sets === baseSets && fins === baseFins) return null;   // nothing actionable to say
+  return { muscle: m, feel, baseSets, baseFins, sets, fins, easier: sets + fins < baseSets + baseFins };
 }
-function recPhrase(r) {
-  switch (r.kind) {
-    case 'addSet':         return `go up to ${r.target} working sets today (was ${r.base})`;
-    case 'removeSet':      return `drop to ${r.target} working set${r.target !== 1 ? 's' : ''} today (was ${r.base})`;
-    case 'addFinisher':    return `keep ${r.base} set${r.base !== 1 ? 's' : ''} but add a finisher (drop set / rest-pause / half reps)`;
-    case 'removeFinisher': return `keep ${r.base} set${r.base !== 1 ? 's' : ''} but skip the finisher — stop short of failure`;
-  }
-  return '';
-}
-function recReason(r) { return r.ans === 'sore' ? 'still sore' : 'recovered early'; }
+// concrete targets for the whole muscle group this session
+function recPhrase(r) { return `aim for ${volumeText(r.sets, r.fins)}`; }
+function recBaseline(r) { return `last time: ${volumeText(r.baseSets, r.baseFins)}`; }
+function recReason(r) { return `${r.feel}/5 ${FEEL_LABEL[r.feel] || ''}`.trim(); }
 
 let recoveryQueue = [];
 // fired from the body-parts "Done" button on the log screen
@@ -1310,7 +1348,9 @@ function renderRecoNote() {
   if (!recs.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'flex';
   el.innerHTML = '<span style="flex-shrink:0;">💡</span><div>' +
-    recs.map(r => `<b>${escapeHtml(r.muscle)}</b> (${escapeHtml(recReason(r))}) — ${recPhrase(r)}`).join('<br>') +
+    recs.map(r =>
+      `<div class="reco-line"><b>${escapeHtml(r.muscle)}</b> <span class="reco-feel">${escapeHtml(recReason(r))}</span><br>` +
+      `${escapeHtml(recPhrase(r))}<span class="reco-base"> · ${escapeHtml(recBaseline(r))}</span></div>`).join('') +
     '<div class="reco-redo" onclick="redoRecovery()">Change how you feel ›</div></div>';
 }
 
