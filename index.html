@@ -707,8 +707,8 @@
       <div class="set-row entry" id="entry-block">
         <div class="top">
           <div class="set-num muted" id="entry-num">1</div>
-          <input type="text" inputmode="numeric" id="in-reps" placeholder="Reps">
-          <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight">
+          <input type="text" inputmode="numeric" id="in-reps" placeholder="Reps" oninput="markEntryDirty()">
+          <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight" oninput="markEntryDirty()">
           <button class="next-set-btn" onclick="logSet()">Next set →</button>
         </div>
         <div class="entry-second">
@@ -1976,6 +1976,7 @@ function renderExerciseCard() {
   document.getElementById('ex-notes').value = workout.current.notes || '';
   document.getElementById('in-reps').value = '';
   document.getElementById('in-weight').value = '';
+  entryDirty = false;
   document.getElementById('ac-list').classList.remove('open');
   if (!workout.current.pending) workout.current.pending = newPending();
   renderSetRows();
@@ -2096,6 +2097,7 @@ function logSet() {
   // keep the same reps/weight prefilled so the next set defaults to the previous one — tap to change only what differs
   document.getElementById('in-reps').value = reps;
   document.getElementById('in-weight').value = weight;
+  entryDirty = false;          // prefill isn't a set until you actually change or log it
   renderSetRows();
 }
 
@@ -2104,6 +2106,7 @@ function logSet() {
 function clearEntry() {
   document.getElementById('in-reps').value = '';
   document.getElementById('in-weight').value = '';
+  entryDirty = false;
   workout.current.pending = newPending();
   persistDraft();
   renderSetRows();
@@ -2123,10 +2126,16 @@ function askDeleteSet(key) {
   });
 }
 
+// True only once the entry row has actually been typed into since it was last
+// filled. logSet() re-prefills the row with the set just logged ("copy previous
+// set"), so without this captureCurrent() would commit that untouched prefill as
+// a duplicate set every time you tapped Next exercise / Complete workout.
+let entryDirty = false;
+function markEntryDirty() { entryDirty = true; }
 function captureCurrent() {
   const reps = document.getElementById('in-reps').value.trim();
   const weight = document.getElementById('in-weight').value.trim();
-  if (reps || weight) {
+  if (entryDirty && (reps || weight)) {
     const p = workout.current.pending || newPending();
     if (p.max) workout.current.sets.forEach(s => s.max = false);
     workout.current.sets.push({ reps, weight, type: p.type, max: p.max, extra: p.extra });
@@ -2139,8 +2148,8 @@ function captureCurrent() {
 // File the exercise being logged back into workout.exercises. When it came from
 // going *back* to an earlier exercise (workout.currentIdx), it returns to its
 // original position instead of being appended, so the order never scrambles.
-function commitCurrentIntoList() {
-  captureCurrent();
+function commitCurrentIntoList(alreadyCaptured) {
+  if (!alreadyCaptured) captureCurrent();
   const cur = workout.current;
   if (!cur.name || !cur.sets.length) return false;
   const entry = { name: cur.name, notes: cur.notes, sets: cur.sets };
@@ -2152,7 +2161,7 @@ function commitCurrentIntoList() {
   return true;
 }
 function nextExercise() {
-  captureCurrent();
+  captureCurrent();                      // commitCurrentIntoList() must not capture again
   const cur = workout.current;
   if (!cur.name || !cur.sets.length) {
     toast(cur.name ? 'Log at least one set first' : 'Name the exercise first');
@@ -2160,7 +2169,7 @@ function nextExercise() {
     return;
   }
   const name = cur.name;
-  commitCurrentIntoList();
+  commitCurrentIntoList(true);
   const fromPlan = loadNextPlanned();      // a loaded plan feeds the next exercise automatically
   store.active = workout;
   renderExerciseCard();
