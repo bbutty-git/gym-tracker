@@ -174,6 +174,16 @@
   .load-help summary { cursor: pointer; font-weight: 700; color: var(--dim); padding: 4px 0; }
   .load-help code { background: var(--surface); padding: 1px 5px; border-radius: 5px; font-size: 11px; color: var(--text); }
   .load-help > div { margin-top: 8px; }
+  /* exercises already logged — tap to go back */
+  .ex-done { display: flex; gap: 6px; margin-top: 9px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+  .ex-done::-webkit-scrollbar { display: none; }
+  .exd-chip {
+    flex-shrink: 0; background: var(--deep); border: 1px solid var(--border);
+    border-radius: 99px; padding: 7px 11px; font: 700 11px Montserrat, sans-serif;
+    color: rgba(255,255,255,.7); cursor: pointer; white-space: nowrap; font-family: inherit;
+  }
+  .exd-chip span { color: var(--pink); margin-left: 3px; }
+  .exd-chip:active { background: var(--pink-soft); border-color: var(--pink-line); color: var(--text); }
   /* "next up" from a loaded plan */
   .plan-next {
     display: flex; align-items: center; gap: 8px; margin-top: 9px;
@@ -681,6 +691,7 @@
         <div class="ex-count" id="ex-count">EXERCISE 1</div>
         <div class="ex-prev" id="ex-prev"></div>
       </div>
+      <div class="ex-done" id="ex-done" style="display:none;"></div>
       <div class="plan-next" id="plan-next" style="display:none;"></div>
       <div class="ex-name-wrap">
         <div class="ex-name-field">
@@ -710,7 +721,7 @@
     </div>
 
     <button class="lift-btn" onclick="startLifting()">🔒 Lifting — lock screen</button>
-    <button class="btn-primary" onclick="nextExercise()">Next exercise →</button>
+    <button class="btn-primary" id="next-ex-btn" onclick="nextExercise()">Next exercise →</button>
     <button class="btn-outline" onclick="completeWorkout()">Complete workout</button>
     <button class="perf-link" onclick="openPerf()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F72585" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"></path></svg>
@@ -1768,6 +1779,17 @@ function skipPlanned() {
   renderPlanNext();
   toast('Skipped ' + next);
 }
+// exercises already logged this workout — tap one to go back and fix it
+function renderDoneExercises() {
+  const el = document.getElementById('ex-done');
+  if (!el) return;
+  const list = (workout && workout.exercises) || [];
+  if (!list.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = list.map((ex, i) =>
+    `<button class="exd-chip" onclick="goToExercise(${i})" title="Go back to ${escapeAttr(ex.name)}">` +
+    `${escapeHtml(ex.name)} <span>${ex.sets.length}</span></button>`).join('');
+}
 function renderPlanNext() {
   const el = document.getElementById('plan-next');
   if (!el) return;
@@ -1940,10 +1962,14 @@ function changeSummaryDate(iso) {
 }
 
 function renderExerciseCard() {
-  const n = workout.exercises.length + 1;
-  document.getElementById('ex-count').textContent = 'EXERCISE ' + n;
+  const back = workout.currentIdx != null;
+  const n = back ? workout.currentIdx + 1 : workout.exercises.length + 1;
+  document.getElementById('ex-count').textContent = (back ? 'EDITING EXERCISE ' : 'EXERCISE ') + n;
   const prev = workout.exercises[workout.exercises.length - 1];
-  document.getElementById('ex-prev').textContent = prev ? prev.name + ' ✓' : '';
+  document.getElementById('ex-prev').textContent = back ? '↩ went back' : (prev ? prev.name + ' ✓' : '');
+  const btn = document.getElementById('next-ex-btn');
+  if (btn) btn.textContent = back ? 'Save & continue →' : 'Next exercise →';
+  renderDoneExercises();
   const nameInput = document.getElementById('ex-name');
   nameInput.value = workout.current.name || '';
   document.getElementById('ex-clear').classList.toggle('show', !!nameInput.value);
@@ -2110,6 +2136,21 @@ function captureCurrent() {
   workout.current.notes = document.getElementById('ex-notes').value.trim();
 }
 
+// File the exercise being logged back into workout.exercises. When it came from
+// going *back* to an earlier exercise (workout.currentIdx), it returns to its
+// original position instead of being appended, so the order never scrambles.
+function commitCurrentIntoList() {
+  captureCurrent();
+  const cur = workout.current;
+  if (!cur.name || !cur.sets.length) return false;
+  const entry = { name: cur.name, notes: cur.notes, sets: cur.sets };
+  const at = workout.currentIdx;
+  if (at != null && at >= 0 && at <= workout.exercises.length) workout.exercises.splice(at, 0, entry);
+  else workout.exercises.push(entry);
+  workout.currentIdx = null;
+  workout.current = newCurrent();
+  return true;
+}
 function nextExercise() {
   captureCurrent();
   const cur = workout.current;
@@ -2118,25 +2159,37 @@ function nextExercise() {
     renderSetRows();
     return;
   }
-  workout.exercises.push({ name: cur.name, notes: cur.notes, sets: cur.sets });
-  workout.current = newCurrent();
+  const name = cur.name;
+  commitCurrentIntoList();
   const fromPlan = loadNextPlanned();      // a loaded plan feeds the next exercise automatically
   store.active = workout;
   renderExerciseCard();
-  toast(cur.name + ' saved ✓');
+  toast(name + ' saved ✓');
   if (!fromPlan) setTimeout(() => document.getElementById('ex-name').focus(), 60);
+}
+// jump back to an exercise already logged in this workout to fix or add sets
+function goToExercise(i) {
+  if (!workout) return;
+  const target = workout.exercises[i];
+  if (!target) return;
+  if (editingKey) saveEditSet();
+  commitCurrentIntoList();                 // park whatever is open (may shift indices)
+  const idx = workout.exercises.indexOf(target);   // re-find by identity, not index
+  if (idx === -1) return;
+  const ex = workout.exercises.splice(idx, 1)[0];
+  workout.currentIdx = idx;
+  workout.current = { name: ex.name, notes: ex.notes || '', sets: ex.sets, pending: newPending() };
+  store.active = workout;
+  renderExerciseCard();
+  toast('Back on ' + ex.name);
+  setTimeout(() => { const el = document.getElementById('in-reps'); if (el) el.focus(); }, 60);
 }
 
 // "Complete workout" now opens an editable review — nothing is saved to history
 // until "Record Workout" is tapped. The workout stays active (resumable) meanwhile.
 function completeWorkout() {
   if (editingKey) saveEditSet();       // don't lose an edit that's open when you tap Complete
-  captureCurrent();
-  const cur = workout.current;
-  if (cur.name && cur.sets.length) {
-    workout.exercises.push({ name: cur.name, notes: cur.notes, sets: cur.sets });
-    workout.current = newCurrent();
-  }
+  commitCurrentIntoList();             // files it back in place if you'd gone back to an earlier one
   if (!workout.exercises.length) {
     toast('Nothing logged yet');
     return;
@@ -2163,6 +2216,7 @@ function recordWorkout(force) {
   workout.synced = false;
   workout.editedAt = Date.now();   // newest copy wins when devices merge
   delete workout.plan;             // any unused planned exercises aren't part of the record
+  delete workout.currentIdx;       // "went back to an earlier exercise" is a live-session concept only
 
   if (editingHistoryIdx !== null) {
     const hist = store.history;
