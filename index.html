@@ -1083,6 +1083,34 @@ const store = {
   get active()   { return JSON.parse(localStorage.getItem('gymf.active') || 'null'); },
   set active(v)  { v === null ? localStorage.removeItem('gymf.active') : localStorage.setItem('gymf.active', JSON.stringify(v)); },
 };
+// Recover sets stranded by the "cleared exercise name" bug: an exercise whose name
+// had been cleared was dropped on Complete workout, but its sets still rode into
+// history on w.current, where nothing ever showed them. Fold them back into the
+// workout they belong to and return how many were rescued. Runs on load and on every
+// cloud merge, so a broken record arriving from another device gets repaired too.
+function repairStrandedDrafts(hist) {
+  let n = 0;
+  hist.forEach(w => {
+    if (!w) return;
+    const draft = w.current;
+    delete w.current;                       // a record has no in-progress exercise
+    if (!draft || !Array.isArray(draft.sets) || !draft.sets.length) return;
+    w.exercises = w.exercises || [];
+    w.exercises.push({
+      name: String(draft.name || '').trim() || 'Unnamed exercise',
+      notes: draft.notes || '',
+      sets: draft.sets
+    });
+    n += draft.sets.length;
+    w.editedAt = Date.now();                // the repaired copy must win the next merge
+  });
+  return n;
+}
+function announceRecovered(n) {
+  if (n) toast(n + (n === 1 ? ' set was' : ' sets were') + ' recovered — check History');
+}
+
+let recoveredSets = 0;   // rescued on load, reported once the first screen is up
 // migrate legacy units + set shapes
 (function migrate() {
   const s = store.settings;
@@ -1103,7 +1131,8 @@ const store = {
     if (x.extra && !EXTRAS[x.extra]) x.extra = null;   // retired tags (e.g. 'finisher') -> No Tag
   }
   const hist = store.history;
-  hist.forEach(w => w.exercises.forEach(ex => ex.sets.forEach(normSet)));
+  recoveredSets = repairStrandedDrafts(hist);
+  hist.forEach(w => (w.exercises || []).forEach(ex => ex.sets.forEach(normSet)));
   store.history = hist;
   const act = store.active;
   if (act) {
@@ -2145,6 +2174,22 @@ function captureCurrent() {
   workout.current.notes = document.getElementById('ex-notes').value.trim();
 }
 
+// commitCurrentIntoList() drops an exercise that has no name — right for an empty
+// card, but it silently destroys every set you logged if the name was cleared
+// afterwards (the ✕ beside it, or backspacing to retype). Anything that files the
+// current exercise away has to stop here first, or those sets vanish from the review
+// with no warning and the draft is gone the moment the workout is recorded.
+// Assumes captureCurrent() has already run, so current.name matches the field.
+function blockOnUnnamedSets() {
+  if (!workout || !workout.current || !workout.current.sets.length || workout.current.name) return false;
+  const n = workout.current.sets.length;
+  toast('Name this exercise — its ' + n + (n === 1 ? ' set isn’t' : ' sets aren’t') + ' saved yet');
+  renderSetRows();
+  const el = document.getElementById('ex-name');
+  if (el) el.focus();
+  return true;
+}
+
 // File the exercise being logged back into workout.exercises. When it came from
 // going *back* to an earlier exercise (workout.currentIdx), it returns to its
 // original position instead of being appended, so the order never scrambles.
@@ -2182,7 +2227,9 @@ function goToExercise(i) {
   const target = workout.exercises[i];
   if (!target) return;
   if (editingKey) saveEditSet();
-  commitCurrentIntoList();                 // park whatever is open (may shift indices)
+  captureCurrent();
+  if (blockOnUnnamedSets()) return;        // switching away would overwrite the unfiled sets
+  commitCurrentIntoList(true);             // park whatever is open (may shift indices)
   const idx = workout.exercises.indexOf(target);   // re-find by identity, not index
   if (idx === -1) return;
   const ex = workout.exercises.splice(idx, 1)[0];
@@ -2198,7 +2245,9 @@ function goToExercise(i) {
 // until "Record Workout" is tapped. The workout stays active (resumable) meanwhile.
 function completeWorkout() {
   if (editingKey) saveEditSet();       // don't lose an edit that's open when you tap Complete
-  commitCurrentIntoList();             // files it back in place if you'd gone back to an earlier one
+  captureCurrent();
+  if (blockOnUnnamedSets()) return;    // never leave the log screen holding unfiled sets
+  commitCurrentIntoList(true);         // files it back in place if you'd gone back to an earlier one
   if (!workout.exercises.length) {
     toast('Nothing logged yet');
     return;
@@ -2222,6 +2271,14 @@ function recordWorkout(force) {
     if (missBp || missType) { openMissing(missBp, missType); return; }
   }
 
+  // Last-ditch net: completeWorkout() already files the in-progress exercise away,
+  // but a record must never carry one — an unfiled draft is invisible everywhere,
+  // so its sets would be lost the moment the workout is written to history.
+  if (workout.current && workout.current.sets && workout.current.sets.length) {
+    workout.current.name = String(workout.current.name || '').trim() || 'Unnamed exercise';
+    commitCurrentIntoList(true);
+  }
+  delete workout.current;          // a record has no in-progress exercise
   workout.synced = false;
   workout.editedAt = Date.now();   // newest copy wins when devices merge
   delete workout.plan;             // any unused planned exercises aren't part of the record
@@ -3008,7 +3065,9 @@ function mergeRemote(remote) {
   });
   const merged = Object.values(pick);
   merged.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+  const rescued = repairStrandedDrafts(merged);   // a device still on the old build can send one
   store.history = merged.slice(0, 200);
+  announceRecovered(rescued);
   s.deletedWorkouts = [...del].slice(-500);
   // profile is last-write-wins as a block: only adopt the remote profile if it was
   // edited more recently than ours — otherwise a stale pull would wipe a just-added
@@ -3324,6 +3383,8 @@ document.getElementById('ex-notes').addEventListener('input', e => {
 
 applyCfgFromHash();
 renderHome();
+// sets rescued from old records by migrate() — say so, they need naming/checking
+if (recoveredSets) setTimeout(() => announceRecovered(recoveredSets), 900);
 // open on the login screen if the cloud is available and there's no saved session yet
 if (hasCloud() && !hasStoredSession() && !offlineMode) showScreen('login');
 // Supabase client loads deferred; init once it's available (restores session / handles auth)
