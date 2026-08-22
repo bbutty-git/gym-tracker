@@ -707,8 +707,8 @@
       <div class="set-row entry" id="entry-block">
         <div class="top">
           <div class="set-num muted" id="entry-num">1</div>
-          <input type="text" inputmode="numeric" id="in-reps" placeholder="Reps" oninput="markEntryDirty()">
-          <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight" oninput="markEntryDirty()">
+          <input type="text" inputmode="numeric" id="in-reps" placeholder="Reps">
+          <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight">
           <button class="next-set-btn" onclick="logSet()">Next set →</button>
         </div>
         <div class="entry-second">
@@ -2005,7 +2005,6 @@ function renderExerciseCard() {
   document.getElementById('ex-notes').value = workout.current.notes || '';
   document.getElementById('in-reps').value = '';
   document.getElementById('in-weight').value = '';
-  entryDirty = false;
   document.getElementById('ac-list').classList.remove('open');
   if (!workout.current.pending) workout.current.pending = newPending();
   renderSetRows();
@@ -2108,14 +2107,14 @@ function renderSetRows() {
   el.innerHTML = workout.current.sets.map((s, i) => setRowHtml(s, 'c' + i, i + 1)).join('');
   document.getElementById('entry-num').textContent = workout.current.sets.length + 1;
   document.getElementById('pending-chips').innerHTML = chipButtons(workout.current.pending, 'pending');
+  renderEntryPlaceholders();
 }
 
 function logSet() {
   const name = document.getElementById('ex-name').value.trim();
   if (!name) { toast('Name the exercise first'); document.getElementById('ex-name').focus(); return; }
   workout.current.name = name;
-  const reps = document.getElementById('in-reps').value.trim();
-  const weight = document.getElementById('in-weight').value.trim();
+  const { reps, weight } = readEntry();
   if (!reps && !weight) { toast('Enter reps and weight'); return; }
   const p = workout.current.pending || newPending();
   if (p.max) workout.current.sets.forEach(s => s.max = false);
@@ -2123,10 +2122,10 @@ function logSet() {
   workout.current.pending = newPending();
   workout.current.notes = document.getElementById('ex-notes').value.trim();
   store.active = workout;
-  // keep the same reps/weight prefilled so the next set defaults to the previous one — tap to change only what differs
-  document.getElementById('in-reps').value = reps;
-  document.getElementById('in-weight').value = weight;
-  entryDirty = false;          // prefill isn't a set until you actually change or log it
+  // the row goes back to empty — renderSetRows() re-offers these numbers as the
+  // placeholder, so the next set is still one tap away without looking pending
+  document.getElementById('in-reps').value = '';
+  document.getElementById('in-weight').value = '';
   renderSetRows();
 }
 
@@ -2135,7 +2134,6 @@ function logSet() {
 function clearEntry() {
   document.getElementById('in-reps').value = '';
   document.getElementById('in-weight').value = '';
-  entryDirty = false;
   workout.current.pending = newPending();
   persistDraft();
   renderSetRows();
@@ -2155,20 +2153,40 @@ function askDeleteSet(key) {
   });
 }
 
-// True only once the entry row has actually been typed into since it was last
-// filled. logSet() re-prefills the row with the set just logged ("copy previous
-// set"), so without this captureCurrent() would commit that untouched prefill as
-// a duplicate set every time you tapped Next exercise / Complete workout.
-let entryDirty = false;
-function markEntryDirty() { entryDirty = true; }
-function captureCurrent() {
+// What the entry row would log right now.
+//
+// The row shows the previous set's numbers as a greyed *placeholder*, never as a
+// filled-in value, so an actual value can only mean "the user typed this". That is
+// what lets Next exercise / Complete workout commit the row on sight: there is no
+// leftover prefill left to mistake for a set you meant to log, and none to invent
+// a phantom one from either. An empty field still falls back to the previous set,
+// which is what the placeholder is offering — so tapping Next set on an untouched
+// row repeats the last set, same as before.
+function readEntry() {
+  const prev = workout.current.sets[workout.current.sets.length - 1];
   const reps = document.getElementById('in-reps').value.trim();
   const weight = document.getElementById('in-weight').value.trim();
-  if (entryDirty && (reps || weight)) {
+  return {
+    typed: !!(reps || weight),
+    reps: reps || (prev ? String(prev.reps) : ''),
+    weight: weight || (prev ? String(prev.weight) : '')
+  };
+}
+// Offer the previous set as a hint the row can be tapped straight through.
+function renderEntryPlaceholders() {
+  const prev = workout.current.sets[workout.current.sets.length - 1];
+  document.getElementById('in-reps').placeholder = prev ? String(prev.reps) : 'Reps';
+  document.getElementById('in-weight').placeholder = prev ? String(prev.weight) : 'Weight';
+}
+function captureCurrent() {
+  const e = readEntry();
+  if (e.typed) {
     const p = workout.current.pending || newPending();
     if (p.max) workout.current.sets.forEach(s => s.max = false);
-    workout.current.sets.push({ reps, weight, type: p.type, max: p.max, extra: p.extra });
+    workout.current.sets.push({ reps: e.reps, weight: e.weight, type: p.type, max: p.max, extra: p.extra });
     workout.current.pending = newPending();
+    document.getElementById('in-reps').value = '';
+    document.getElementById('in-weight').value = '';
   }
   workout.current.name = document.getElementById('ex-name').value.trim();
   workout.current.notes = document.getElementById('ex-notes').value.trim();
