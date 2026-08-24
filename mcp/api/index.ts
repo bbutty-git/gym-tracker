@@ -136,15 +136,17 @@ export default async function handler(req: Req, res: ServerResponse): Promise<vo
       // The signing secret is only reached at /register, so without this a
       // misconfigured deployment looks healthy right up until someone connects.
       let secret = true;
+      let why = '';
       try {
         signingSecret();
-      } catch {
+      } catch (e) {
         secret = false;
+        why = e instanceof Error ? e.message : String(e);
       }
       send(res, secret ? 200 : 500, {
         name: 'gym-tracker-mcp',
         status: secret ? 'ok' : 'misconfigured',
-        signing_secret: secret ? 'set' : 'MISSING — set OAUTH_SIGNING_SECRET in Vercel, then redeploy',
+        signing_secret: secret ? 'set' : why,
         mcp_endpoint: '/mcp',
         rewrite: path === '/api/index' ? 'not applied — hit via the function route' : 'applied'
       });

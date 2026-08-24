@@ -13,8 +13,13 @@ export const USER_DOMAIN = process.env.USER_DOMAIN || 'gymtracker.app';
 
 export function signingSecret(): string {
   const s = process.env.OAUTH_SIGNING_SECRET;
-  if (!s || s.length < 32) {
-    throw new Error('OAUTH_SIGNING_SECRET is missing or shorter than 32 characters.');
+  if (!s) {
+    throw new Error('OAUTH_SIGNING_SECRET is not set in this deployment. Add it in Vercel (tick Production), then redeploy.');
+  }
+  if (s.length < 32) {
+    throw new Error(
+      `OAUTH_SIGNING_SECRET is set but only ${s.length} characters; it must be at least 32. Replace it, then redeploy.`
+    );
   }
   return s;
 }
