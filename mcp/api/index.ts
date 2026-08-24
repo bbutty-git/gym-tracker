@@ -101,8 +101,16 @@ export default async function handler(req: Req, res: ServerResponse): Promise<vo
       return;
     }
 
-    if (path === '/' || path === '/health') {
-      send(res, 200, { name: 'gym-tracker-mcp', status: 'ok', mcp_endpoint: '/mcp' });
+    // /api/index is the function's own filesystem route — reachable even if the
+    // vercel.json rewrite is not in effect, which makes it the probe that tells a
+    // live-but-misrouted server apart from one that never got built at all.
+    if (path === '/' || path === '/health' || path === '/api/index') {
+      send(res, 200, {
+        name: 'gym-tracker-mcp',
+        status: 'ok',
+        mcp_endpoint: '/mcp',
+        rewrite: path === '/api/index' ? 'not applied — hit via the function route' : 'applied'
+      });
       return;
     }
 
