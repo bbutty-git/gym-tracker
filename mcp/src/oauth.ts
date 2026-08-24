@@ -93,11 +93,39 @@ export function authorizationServerMetadata(req: Req, res: ServerResponse): void
 
 /* ---------- dynamic client registration (RFC 7591) ---------- */
 
+/**
+ * https anywhere, or plain http on the loopback interface — OAuth 2.1 allows the
+ * latter for native clients, and rejecting it turns a legitimate registration into
+ * an opaque "couldn't register" on the client side.
+ */
+function validRedirect(u: unknown): boolean {
+  if (typeof u !== 'string') return false;
+  let url: URL;
+  try {
+    url = new URL(u);
+  } catch {
+    return false;
+  }
+  if (url.protocol === 'https:') return true;
+  return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]', '::1'].includes(url.hostname);
+}
+
 export function register(req: Req, res: ServerResponse): void {
   const body = bodyOf(req.body);
   const uris = Array.isArray(body.redirect_uris) ? (body.redirect_uris as string[]) : [];
-  if (!uris.length || !uris.every((u) => typeof u === 'string' && u.startsWith('https://'))) {
-    json(res, 400, { error: 'invalid_redirect_uri', error_description: 'https redirect_uris are required' });
+  if (!uris.length) {
+    json(res, 400, {
+      error: 'invalid_client_metadata',
+      error_description: 'No redirect_uris in the registration request. If the body arrived empty, the request body was not parsed.'
+    });
+    return;
+  }
+  const bad = uris.filter((u) => !validRedirect(u));
+  if (bad.length) {
+    json(res, 400, {
+      error: 'invalid_redirect_uri',
+      error_description: `redirect_uris must be https, or http on loopback. Rejected: ${bad.join(', ')}`
+    });
     return;
   }
   // The client id *is* the registration: signed, so /authorize can trust the
