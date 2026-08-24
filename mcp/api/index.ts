@@ -20,8 +20,34 @@ import {
   unauthorized
 } from '../src/oauth.js';
 import { buildServer } from '../src/tools.js';
+import { signingSecret } from '../src/config.js';
 
 type Req = IncomingMessage & { body?: unknown; headers: Record<string, string | string[] | undefined> };
+
+/**
+ * Vercel normally parses the request body, but that depends on the runtime and the
+ * content type, and a body that silently arrives as undefined is indistinguishable
+ * from a malformed request once it reaches /register or /token. Read it ourselves
+ * whenever it is missing so those endpoints behave the same either way.
+ */
+async function ensureBody(req: Req): Promise<void> {
+  if (req.body !== undefined) return;
+  const method = (req.method || 'GET').toUpperCase();
+  if (method !== 'POST' && method !== 'PUT' && method !== 'PATCH') return;
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  const raw = Buffer.concat(chunks).toString('utf8');
+  if (!raw) return;
+  if (String(req.headers['content-type'] || '').includes('application/json')) {
+    try {
+      req.body = JSON.parse(raw);
+    } catch {
+      req.body = raw;
+    }
+  } else {
+    req.body = raw;
+  }
+}
 
 function send(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status;
@@ -65,6 +91,8 @@ export default async function handler(req: Req, res: ServerResponse): Promise<vo
   const method = (req.method || 'GET').toUpperCase();
 
   try {
+    await ensureBody(req);
+
     // Discovery. Claude also probes the /mcp-suffixed variants of these.
     if (path === '/.well-known/oauth-protected-resource' || path === '/.well-known/oauth-protected-resource/mcp') {
       protectedResourceMetadata(req, res);
@@ -105,9 +133,18 @@ export default async function handler(req: Req, res: ServerResponse): Promise<vo
     // vercel.json rewrite is not in effect, which makes it the probe that tells a
     // live-but-misrouted server apart from one that never got built at all.
     if (path === '/' || path === '/health' || path === '/api/index') {
-      send(res, 200, {
+      // The signing secret is only reached at /register, so without this a
+      // misconfigured deployment looks healthy right up until someone connects.
+      let secret = true;
+      try {
+        signingSecret();
+      } catch {
+        secret = false;
+      }
+      send(res, secret ? 200 : 500, {
         name: 'gym-tracker-mcp',
-        status: 'ok',
+        status: secret ? 'ok' : 'misconfigured',
+        signing_secret: secret ? 'set' : 'MISSING — set OAUTH_SIGNING_SECRET in Vercel, then redeploy',
         mcp_endpoint: '/mcp',
         rewrite: path === '/api/index' ? 'not applied — hit via the function route' : 'applied'
       });

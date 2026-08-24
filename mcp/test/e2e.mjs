@@ -52,6 +52,20 @@ const app = createServer(async (req, res) => {
 await new Promise((r) => app.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${app.address().port}`;
 
+/* ---------- health ---------- */
+const health = await (await fetch(`${base}/health`)).json();
+ok('health reports the signing secret is set', health.status === 'ok' && health.signing_secret === 'set', JSON.stringify(health));
+
+// signingSecret() reads process.env at call time, so this exercises the real path.
+const savedSecret = process.env.OAUTH_SIGNING_SECRET;
+delete process.env.OAUTH_SIGNING_SECRET;
+const sick = await fetch(`${base}/health`);
+const sickJson = await sick.json();
+ok('health reports a missing signing secret instead of looking fine',
+  sick.status === 500 && sickJson.status === 'misconfigured' && /MISSING/.test(sickJson.signing_secret),
+  `${sick.status} ${JSON.stringify(sickJson)}`);
+process.env.OAUTH_SIGNING_SECRET = savedSecret;
+
 /* ---------- discovery ---------- */
 const unauth = await fetch(`${base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
@@ -76,7 +90,20 @@ ok('DCR issues a client_id', typeof reg.client_id === 'string' && reg.client_id.
 
 const badReg = await fetch(`${base}/register`, { method: 'POST', headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ redirect_uris: ['http://evil.test/cb'] }) });
-ok('DCR rejects non-https redirect_uris', badReg.status === 400, `got ${badReg.status}`);
+ok('DCR rejects non-loopback http redirect_uris', badReg.status === 400, `got ${badReg.status}`);
+
+const loopback = await fetch(`${base}/register`, { method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ redirect_uris: ['http://127.0.0.1:41999/cb'], client_name: 'Claude Code' }) });
+ok('DCR accepts a loopback http redirect_uri (OAuth 2.1 native clients)', loopback.status === 201, `got ${loopback.status}`);
+
+const mixed = await fetch(`${base}/register`, { method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ redirect_uris: [REDIRECT, 'http://localhost:8080/cb'] }) });
+ok('DCR accepts https and loopback together', mixed.status === 201, `got ${mixed.status}`);
+
+const emptyBody = await fetch(`${base}/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+const emptyBodyJson = await emptyBody.json();
+ok('DCR names the empty-body case rather than blaming the redirect_uri',
+  emptyBody.status === 400 && emptyBodyJson.error === 'invalid_client_metadata', JSON.stringify(emptyBodyJson));
 
 /* ---------- authorize ---------- */
 const verifier = b64url(randomBytes(32));
@@ -200,6 +227,18 @@ ok('delete leaves a tombstone so it will not resync',
 
 const missing = await call('get_workout', { id: 424242 });
 ok('unknown id fails cleanly', missing.includes('No workout found'), missing);
+
+/* ---------- unparsed body fallback ---------- */
+// Some runtimes hand the handler no req.body at all; it must read the stream itself.
+const rawApp = createServer(async (req, res) => { await handler(req, res); });   // deliberately no body parsing
+await new Promise((r) => rawApp.listen(0, '127.0.0.1', r));
+const rawBase = `http://127.0.0.1:${rawApp.address().port}`;
+const rawReg = await fetch(`${rawBase}/register`, { method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ redirect_uris: [REDIRECT], client_name: 'Claude' }) });
+const rawRegJson = await rawReg.json();
+ok('DCR works when the runtime does not pre-parse the body',
+  rawReg.status === 201 && typeof rawRegJson.client_id === 'string', `${rawReg.status} ${JSON.stringify(rawRegJson).slice(0,160)}`);
+await new Promise((r) => rawApp.close(r));
 
 /* ---------- vercel rewrite shape ---------- */
 // Vercel forwards the real path as __path; make sure that routing works too.
