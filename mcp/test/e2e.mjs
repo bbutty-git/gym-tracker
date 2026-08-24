@@ -62,8 +62,13 @@ delete process.env.OAUTH_SIGNING_SECRET;
 const sick = await fetch(`${base}/health`);
 const sickJson = await sick.json();
 ok('health reports a missing signing secret instead of looking fine',
-  sick.status === 500 && sickJson.status === 'misconfigured' && /MISSING/.test(sickJson.signing_secret),
+  sick.status === 500 && sickJson.status === 'misconfigured' && /is not set/.test(sickJson.signing_secret),
   `${sick.status} ${JSON.stringify(sickJson)}`);
+
+process.env.OAUTH_SIGNING_SECRET = 'too-short';
+const shortSecret = await (await fetch(`${base}/health`)).json();
+ok('health distinguishes a too-short secret from a missing one',
+  /only 9 characters/.test(shortSecret.signing_secret), JSON.stringify(shortSecret));
 process.env.OAUTH_SIGNING_SECRET = savedSecret;
 
 /* ---------- discovery ---------- */
