@@ -55,6 +55,13 @@ const base = `http://127.0.0.1:${app.address().port}`;
 /* ---------- health ---------- */
 const health = await (await fetch(`${base}/health`)).json();
 ok('health reports the signing secret is set', health.status === 'ok' && health.signing_secret === 'set', JSON.stringify(health));
+ok('health lists our variables by name so a typo is visible',
+  Array.isArray(health.deployment?.our_variables_present) &&
+  health.deployment.our_variables_present.includes('OAUTH_SIGNING_SECRET') &&
+  health.deployment.our_variables_present.includes('SUPABASE_URL'),
+  JSON.stringify(health.deployment));
+ok('health never exposes a variable value',
+  !JSON.stringify(health).includes(process.env.OAUTH_SIGNING_SECRET), 'value leaked into /health');
 
 // signingSecret() reads process.env at call time, so this exercises the real path.
 const savedSecret = process.env.OAUTH_SIGNING_SECRET;

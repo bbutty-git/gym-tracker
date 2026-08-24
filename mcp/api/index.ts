@@ -52,7 +52,19 @@ async function ensureBody(req: Req): Promise<void> {
 function send(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');   // never let a stale health check mislead
   res.end(JSON.stringify(body));
+}
+
+/**
+ * Which of *our* variables actually reached this deployment, by name only — never
+ * a value. A misspelled key, or a variable scoped to the wrong environment, is
+ * otherwise indistinguishable from one that was never added.
+ */
+function configuredKeys(): string[] {
+  return Object.keys(process.env)
+    .filter((k) => /^(OAUTH_|SUPABASE_|PUBLIC_ORIGIN|USER_DOMAIN)/.test(k))
+    .sort();
 }
 
 async function handleMcp(req: Req, res: ServerResponse): Promise<void> {
@@ -148,7 +160,12 @@ export default async function handler(req: Req, res: ServerResponse): Promise<vo
         status: secret ? 'ok' : 'misconfigured',
         signing_secret: secret ? 'set' : why,
         mcp_endpoint: '/mcp',
-        rewrite: path === '/api/index' ? 'not applied — hit via the function route' : 'applied'
+        rewrite: path === '/api/index' ? 'not applied — hit via the function route' : 'applied',
+        deployment: {
+          target: process.env.VERCEL_ENV || 'unknown',
+          commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || 'unknown',
+          our_variables_present: configuredKeys()
+        }
       });
       return;
     }
