@@ -33,6 +33,10 @@ openssl rand -base64 48
 npx vercel deploy --prod       # or point a Vercel project at this repo, Root Directory = mcp
 ```
 
+**Root Directory must be `mcp`** (Vercel → Project → Settings → Build and Deployment). Without it
+Vercel builds the repo root, finds the app's `index.html`, and serves a second copy of the app
+instead of this server. Changing it does not affect existing deployments — redeploy afterwards.
+
 Then set the environment variable in **Vercel → Project → Settings → Environment Variables**:
 
 | Variable | Required | Default |
@@ -45,6 +49,14 @@ Then set the environment variable in **Vercel → Project → Settings → Envir
 
 Redeploy after setting it. `curl https://<your-deployment>/health` should return
 `{"name":"gym-tracker-mcp","status":"ok","mcp_endpoint":"/mcp"}`.
+
+If that 404s, hit `/api/index` — the function's own filesystem route, which answers even when the
+`vercel.json` rewrite is not in effect. JSON there means the server is built and only the rewrite is
+missing; a Vercel-branded 404 there means no function was built, which is a Root Directory problem.
+
+Note there is deliberately no `build` script: Vercel's zero-config runs `npm run build` when one
+exists, which would make this look like a static site and shadow the functions. Vercel compiles
+`api/*.ts` itself. Use `npm run compile` locally.
 
 ## Connect it to Claude
 
