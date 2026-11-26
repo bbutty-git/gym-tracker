@@ -24,6 +24,7 @@ export interface GymSet {
   max: boolean;
   extra: Extra | null;
   grip?: string | null;
+  brand?: string | null;
 }
 
 export interface Exercise {

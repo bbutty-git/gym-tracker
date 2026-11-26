@@ -383,6 +383,7 @@
   .chip.max-on { background: var(--pink-soft); border-color: var(--pink-line); color: var(--pink); font-weight: 700; }
   .chip.extra-on { background: rgba(76,201,240,.12); border-color: rgba(76,201,240,.4); color: var(--cyan); font-weight: 700; }
   .chip.grip-on { background: rgba(255,193,7,.12); border-color: rgba(255,193,7,.4); color: #FFC107; font-weight: 700; }
+  .chip.brand-on { background: rgba(100,200,150,.12); border-color: rgba(100,200,150,.4); color: #64C896; font-weight: 700; }
   .ex-card textarea {
     width: 100%; background: var(--deep); border: 1px solid rgba(255,255,255,.1);
     border-radius: 12px; padding: 12px 14px; font: 500 12px Montserrat, sans-serif;
@@ -1131,7 +1132,7 @@ let recoveredSets = 0;   // rescued on load, reported once the first screen is u
   if (s.unit === 'lb') { s.unit = 'lbs'; dirty = true; }
   if (!s.unit) { s.unit = 'lbs'; dirty = true; }
   if (!s.maxLifts) { s.maxLifts = []; dirty = true; }
-  if (!s.brands) { s.brands = ['Hammer Strength', 'Cybex']; dirty = true; }
+  if (!s.brands) { s.brands = ['Hammer Strength', 'Cybex', 'Life Fitness']; dirty = true; }
   if (!s.bodyweightLog) { s.bodyweightLog = []; dirty = true; }
   if (dirty) store.settings = s;
 
@@ -1142,6 +1143,7 @@ let recoveredSets = 0;   // rescued on load, reported once the first screen is u
       delete x.tech;
     }
     if (x.extra && !EXTRAS[x.extra]) x.extra = null;   // retired tags (e.g. 'finisher') -> No Tag
+    if (x.grip === undefined) x.grip = null;   // add grip field to old sets
   }
   const hist = store.history;
   recoveredSets = repairStrandedDrafts(hist);
@@ -1634,7 +1636,7 @@ function startWorkout() {
   openLogScreen(true);
 }
 function newCurrent() { return { name: '', notes: '', sets: [], pending: newPending() }; }
-function newPending() { return { type: 'working', max: false, extra: null, grip: null }; }
+function newPending() { return { type: 'working', max: false, extra: null, grip: null, brand: null }; }
 
 /* ================= load a workout plan (paste JSON from Claude, or shorthand) ================= */
 // longest aliases first so "rest pause" wins before "rest"
@@ -1664,7 +1666,8 @@ function planSet(weight, reps, opts) {
     type: opts.warmup ? 'warmup' : 'working',
     max: !!opts.max,
     extra: normalizeTag(opts.finisher || opts.tag || opts.extra),
-    grip: opts.grip || null
+    grip: opts.grip || null,
+    brand: opts.brand || null
   };
 }
 // Get available grips for an exercise name, or null if not a cable machine with grip options
@@ -2067,8 +2070,14 @@ function chipButtons(s, ref) {
     const gripLabel = s.grip && grips[s.grip] ? grips[s.grip] : 'Grip';
     gripBtn = `<button class="chip ${s.grip ? 'grip-on' : ''}" onclick="openChipMenu(event, '${ref}', 'grip')">${gripLabel} ▾</button>`;
   }
+  // brand selector for machine exercises (pending set only, before name is finalized)
+  let brandBtn = '';
+  if (ref === 'pending' && exName && isMachineExercise(exName) && !hasBrandSuffix(exName)) {
+    const brandLabel = s.brand || 'Machine';
+    brandBtn = `<button class="chip ${s.brand ? 'brand-on' : ''}" onclick="openChipMenu(event, '${ref}', 'brand')">${brandLabel} ▾</button>`;
+  }
   return `<button class="chip ${k.cls}" onclick="openChipMenu(event, '${ref}', 'kind')">${k.flame ? FLAME + ' ' : ''}${k.label} ▾</button>
-    <button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, '${ref}', 'extra')">${EXTRAS[s.extra] || 'No Tag'} ▾</button>${gripBtn}`;
+    <button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, '${ref}', 'extra')">${EXTRAS[s.extra] || 'No Tag'} ▾</button>${brandBtn}${gripBtn}`;
 }
 
 // set addressing: 'pending' | 'c<i>' (current exercise) | 'x<e>_<i>' (completed exercise on review)
@@ -2160,10 +2169,15 @@ function renderSetRows() {
 function logSet() {
   const name = document.getElementById('ex-name').value.trim();
   if (!name) { toast('Name the exercise first'); document.getElementById('ex-name').focus(); return; }
-  workout.current.name = name;
+  let finalName = name;
+  const p = workout.current.pending || newPending();
+  // append brand to machine exercise name if one was selected
+  if (isMachineExercise(name) && p.brand && !hasBrandSuffix(name)) {
+    finalName = name + ' (' + p.brand + ')';
+  }
+  workout.current.name = finalName;
   const { reps, weight } = readEntry();
   if (!reps && !weight) { toast('Enter reps and weight'); return; }
-  const p = workout.current.pending || newPending();
   if (p.max) workout.current.sets.forEach(s => s.max = false);
   workout.current.sets.push({ reps, weight, type: p.type, max: p.max, extra: p.extra, grip: p.grip || null });
   workout.current.pending = newPending();
@@ -2235,7 +2249,13 @@ function captureCurrent() {
     document.getElementById('in-reps').value = '';
     document.getElementById('in-weight').value = '';
   }
-  workout.current.name = document.getElementById('ex-name').value.trim();
+  let name = document.getElementById('ex-name').value.trim();
+  const p = workout.current.pending || newPending();
+  // append brand to machine exercise name if one was selected and not already there
+  if (isMachineExercise(name) && p.brand && !hasBrandSuffix(name)) {
+    name = name + ' (' + p.brand + ')';
+  }
+  workout.current.name = name;
   workout.current.notes = document.getElementById('ex-notes').value.trim();
 }
 
@@ -2410,6 +2430,12 @@ function openChipMenu(e, i, kind) {
       { v: 'working', label: 'Working set', on: cur === 'working' },
       { v: 'max', label: 'Max Set', flame: true, on: cur === 'max' }
     ];
+  } else if (kind === 'brand') {
+    const brands = store.settings.brands || [];
+    options = [
+      { v: null, label: 'No brand', on: !s.brand },
+      ...brands.map(b => ({ v: b, label: b, on: s.brand === b }))
+    ];
   } else if (kind === 'grip') {
     const exName = workout && workout.current ? workout.current.name : '';
     const grips = gripsForExercise(exName);
@@ -2484,6 +2510,8 @@ function applyChip(key, kind, v) {
     } else {
       s.type = v; s.max = false;
     }
+  } else if (kind === 'brand') {
+    s.brand = v;
   } else if (kind === 'grip') {
     s.grip = v;
   } else {
@@ -2551,12 +2579,7 @@ function renderAutocomplete(query) {
 }
 
 function pickExercise(name) {
-  // machine exercises route through the brand picker first (unless already branded)
-  if (isMachineExercise(name) && !hasBrandSuffix(name) && (store.settings.brands || []).length) {
-    document.getElementById('ac-list').classList.remove('open');
-    openBrandPicker(name);
-    return;
-  }
+  // machine exercises no longer use the brand picker modal — brands are selected via chip button
   finishPickExercise(name);
 }
 function finishPickExercise(name) {
@@ -2750,7 +2773,7 @@ function setWorkoutComment(v) {
 // add a blank working set to an exercise on the review screen, opened for editing
 function addSetToExercise(e) {
   if (!workout || !workout.exercises[e]) return;
-  workout.exercises[e].sets.push({ reps: '', weight: '', type: 'working', max: false, extra: null, grip: null });
+  workout.exercises[e].sets.push({ reps: '', weight: '', type: 'working', max: false, extra: null, grip: null, brand: null });
   editingExIdx = null;
   editingKey = 'x' + e + '_' + (workout.exercises[e].sets.length - 1);
   persistDraft();
@@ -2760,7 +2783,7 @@ function addSetToExercise(e) {
 // add a new, empty exercise to the workout and open its name editor
 function addExerciseToWorkout() {
   if (!workout) return;
-  workout.exercises.push({ name: '', notes: '', sets: [{ reps: '', weight: '', type: 'working', max: false, extra: null, grip: null }] });
+  workout.exercises.push({ name: '', notes: '', sets: [{ reps: '', weight: '', type: 'working', max: false, extra: null, grip: null, brand: null }] });
   editingKey = null;
   editingExIdx = workout.exercises.length - 1;
   persistDraft();
