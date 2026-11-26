@@ -2066,7 +2066,6 @@ const KIND_UI = {
   max:     { cls: 'max-on', label: 'Max Set', flame: true }
 };
 function chipButtons(s, ref) {
-  const k = KIND_UI[kindOf(s)];
   const exName = workout && workout.current ? workout.current.name : '';
   const grips = gripsForExercise(exName);
   let gripBtn = '';
@@ -2083,7 +2082,9 @@ function chipButtons(s, ref) {
   // tempo selector
   const tempoLabel = s.tempo && TEMPOS[s.tempo] ? TEMPOS[s.tempo] : 'Tempo';
   const tempoBtn = `<button class="chip ${s.tempo ? 'tempo-on' : ''}" onclick="openChipMenu(event, '${ref}', 'tempo')">${tempoLabel} ▾</button>`;
-  return `<button class="chip ${k.cls}" onclick="openChipMenu(event, '${ref}', 'kind')">${k.flame ? FLAME + ' ' : ''}${k.label} ▾</button>
+  // max set toggle
+  const maxBtn = `<button class="chip ${s.max ? 'max-on' : ''}" onclick="toggleMax('${ref}')" title="Mark as Max Set">${s.max ? FLAME + ' Max' : 'Set'}</button>`;
+  return `${maxBtn}
     <button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, '${ref}', 'extra')">${EXTRAS[s.extra] || 'No Tag'} ▾</button>${brandBtn}${gripBtn}${tempoBtn}`;
 }
 
@@ -2423,6 +2424,18 @@ function closeMissing() { document.getElementById('missing-modal').classList.rem
 let chipMenuEl = null;
 function closeChipMenu() { if (chipMenuEl) { chipMenuEl.remove(); chipMenuEl = null; } }
 function chipTarget(key) { const c = setCtx(key); return c ? c.set : null; }
+function toggleMax(key) {
+  const ctx = setCtx(key);
+  if (!ctx || !ctx.set) return;
+  if (ctx.set.max) {
+    ctx.set.max = false;
+  } else {
+    if (!ctx.pending) ctx.sets.forEach(x => x.max = false); // one Max Set per exercise
+    ctx.set.max = true;
+  }
+  persistDraft();
+  refreshEditors();
+}
 
 function openChipMenu(e, i, kind) {
   e.stopPropagation();
@@ -2430,14 +2443,7 @@ function openChipMenu(e, i, kind) {
   const s = chipTarget(i);
   if (!s) return;
   let options;
-  if (kind === 'kind') {
-    const cur = kindOf(s);
-    options = [
-      { v: 'warmup', label: 'Warm up set', on: cur === 'warmup' },
-      { v: 'working', label: 'Working set', on: cur === 'working' },
-      { v: 'max', label: 'Max Set', flame: true, on: cur === 'max' }
-    ];
-  } else if (kind === 'brand') {
+  if (kind === 'brand') {
     const brands = store.settings.brands || [];
     options = [
       { v: null, label: 'No brand', on: !s.brand },
@@ -2515,14 +2521,7 @@ function applyChip(key, kind, v) {
   const ctx = setCtx(key);
   if (!ctx || !ctx.set) { closeChipMenu(); return; }
   const s = ctx.set;
-  if (kind === 'kind') {
-    if (v === 'max') {
-      if (!ctx.pending) ctx.sets.forEach(x => x.max = false); // one Max Set per exercise
-      s.type = 'working'; s.max = true;
-    } else {
-      s.type = v; s.max = false;
-    }
-  } else if (kind === 'brand') {
+  if (kind === 'brand') {
     s.brand = v;
   } else if (kind === 'tempo') {
     s.tempo = v;
