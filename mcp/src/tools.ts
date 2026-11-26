@@ -37,7 +37,7 @@ const setInput = z.object({
   extra: z.enum(EXTRAS).nullish().describe('Optional set tag.'),
   grip: z.string().optional().describe('Grip type for cable machines, e.g. "wide grip", "rope".'),
   brand: z.string().optional().describe('Machine brand, e.g. "Hammer Strength", "Life Fitness".'),
-  tempo: z.enum(['normal', 'paused', 'longpause']).optional().describe('Rep tempo: normal, paused, or long pause.')
+  tempo: z.enum(['paused', 'longpause']).optional().describe('Rep tempo: paused or long pause. Leave unset for normal.')
 });
 
 const exerciseInput = z.object({
