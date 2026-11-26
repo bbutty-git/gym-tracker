@@ -1093,6 +1093,8 @@ const store = {
   set history(v) { localStorage.setItem('gymf.history', JSON.stringify(v)); },
   get active()   { return JSON.parse(localStorage.getItem('gymf.active') || 'null'); },
   set active(v)  { v === null ? localStorage.removeItem('gymf.active') : localStorage.setItem('gymf.active', JSON.stringify(v)); },
+  get customGrips() { return JSON.parse(localStorage.getItem('gymf.customGrips') || '{}'); },
+  set customGrips(v) { localStorage.setItem('gymf.customGrips', JSON.stringify(v)); },
 };
 // Recover sets stranded by the "cleared exercise name" bug: an exercise whose name
 // had been cleared was dropped on Complete workout, but its sets still rode into
@@ -1669,10 +1671,27 @@ function planSet(weight, reps, opts) {
 function gripsForExercise(name) {
   if (!name) return null;
   const lower = name.toLowerCase();
-  for (const [exName, grips] of Object.entries(GRIPS)) {
-    if (lower.includes(exName)) return grips;
+  let grips = null;
+  for (const [exName, gripMap] of Object.entries(GRIPS)) {
+    if (lower.includes(exName)) {
+      grips = { ...gripMap };
+      break;
+    }
   }
-  return null;
+  // add any custom grips saved for this exercise
+  if (grips) {
+    const custom = store.customGrips[lower] || {};
+    grips = { ...grips, ...custom };
+  }
+  return grips;
+}
+// Save a custom grip for an exercise so it shows up as an option next time
+function saveCustomGrip(exerciseName, gripKey, gripLabel) {
+  const lower = exerciseName.toLowerCase();
+  const custom = store.customGrips;
+  if (!custom[lower]) custom[lower] = {};
+  custom[lower][gripKey] = gripLabel;
+  store.customGrips = custom;
 }
 // ---- text shorthand: "Bench Press" then "185 x 8 drop", or "Leg Press: 3 x 200 x 12" ----
 function parseSetChunk(chunk) {
@@ -2415,6 +2434,34 @@ function openChipMenu(e, i, kind) {
     d.onclick = ev => { ev.stopPropagation(); applyChip(i, kind, o.v); };
     m.appendChild(d);
   });
+
+  // Add custom input for grip
+  if (kind === 'grip') {
+    const sep = document.createElement('div');
+    sep.style.borderTop = '1px solid rgba(255,255,255,.1)';
+    sep.style.margin = '6px 0';
+    m.appendChild(sep);
+
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = 'Add custom grip...';
+    inp.style.cssText = 'width:calc(100% - 12px);padding:8px 6px;background:#1a1a1f;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;font-size:12px;font-family:inherit;margin:6px';
+    inp.onkeydown = ev => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter' && inp.value.trim()) {
+        const val = inp.value.trim();
+        const exName = workout && workout.current ? workout.current.name : '';
+        const gripKey = val.toLowerCase();
+        saveCustomGrip(exName, gripKey, val);
+        applyChip(i, kind, gripKey);
+      } else if (ev.key === 'Escape') {
+        closeChipMenu();
+      }
+    };
+    m.appendChild(inp);
+    setTimeout(() => inp.focus(), 50);
+  }
+
   document.body.appendChild(m);
 
   const r = e.currentTarget.getBoundingClientRect();
