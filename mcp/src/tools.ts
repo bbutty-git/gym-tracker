@@ -36,7 +36,8 @@ const setInput = z.object({
   max: z.boolean().optional().describe('Mark this as the exercise\'s Max Set. At most one per exercise.'),
   extra: z.enum(EXTRAS).nullish().describe('Optional set tag.'),
   grip: z.string().optional().describe('Grip type for cable machines, e.g. "wide grip", "rope".'),
-  brand: z.string().optional().describe('Machine brand, e.g. "Hammer Strength", "Life Fitness".')
+  brand: z.string().optional().describe('Machine brand, e.g. "Hammer Strength", "Life Fitness".'),
+  tempo: z.enum(['normal', 'paused', 'longpause']).optional().describe('Rep tempo: normal, paused, or long pause.')
 });
 
 const exerciseInput = z.object({
