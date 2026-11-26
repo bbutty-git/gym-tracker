@@ -2475,6 +2475,35 @@ function openChipMenu(e, i, kind) {
     m.appendChild(d);
   });
 
+  // Add custom input for brand
+  if (kind === 'brand') {
+    const sep = document.createElement('div');
+    sep.style.borderTop = '1px solid rgba(255,255,255,.1)';
+    sep.style.margin = '6px 0';
+    m.appendChild(sep);
+
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = 'Add new brand...';
+    inp.style.cssText = 'width:calc(100% - 12px);padding:8px 6px;background:#1a1a1f;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;font-size:12px;font-family:inherit;margin:6px';
+    inp.onkeydown = ev => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter' && inp.value.trim()) {
+        const val = inp.value.trim();
+        const s = store.settings;
+        if (!s.brands.some(b => b.toLowerCase() === val.toLowerCase())) {
+          s.brands.push(val);
+          store.settings = s;
+        }
+        applyChip(i, kind, val);
+      } else if (ev.key === 'Escape') {
+        closeChipMenu();
+      }
+    };
+    m.appendChild(inp);
+    setTimeout(() => inp.focus(), 50);
+  }
+
   // Add custom input for grip
   if (kind === 'grip') {
     const sep = document.createElement('div');
