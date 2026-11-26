@@ -34,7 +34,8 @@ const setInput = z.object({
   weight: z.union([z.number(), z.string()]).describe('Weight used, in the profile unit. Use 0 for bodyweight.'),
   type: z.enum(['working', 'warmup']).optional().describe('Defaults to working.'),
   max: z.boolean().optional().describe('Mark this as the exercise\'s Max Set. At most one per exercise.'),
-  extra: z.enum(EXTRAS).nullish().describe('Optional set tag.')
+  extra: z.enum(EXTRAS).nullish().describe('Optional set tag.'),
+  grip: z.string().optional().describe('Grip type for cable machines, e.g. "wide grip", "rope".')
 });
 
 const exerciseInput = z.object({

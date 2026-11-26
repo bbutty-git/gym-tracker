@@ -23,6 +23,7 @@ export interface GymSet {
   type: SetType;
   max: boolean;
   extra: Extra | null;
+  grip?: string | null;
 }
 
 export interface Exercise {
@@ -134,7 +135,8 @@ export function describeSet(s: GymSet, unit: string): string {
   const tags = [
     s.type === 'warmup' ? 'warm up' : null,
     s.max ? 'max set' : null,
-    s.extra ? s.extra : null
+    s.extra ? s.extra : null,
+    s.grip ? s.grip : null
   ].filter(Boolean);
   return `${s.weight}${unit} x ${s.reps}${tags.length ? ` [${tags.join(', ')}]` : ''}`;
 }
