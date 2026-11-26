@@ -382,6 +382,8 @@
   .chip.grip-on { background: rgba(255,193,7,.12); border-color: rgba(255,193,7,.4); color: #FFC107; font-weight: 700; }
   .chip.brand-on { background: rgba(100,200,150,.12); border-color: rgba(100,200,150,.4); color: #64C896; font-weight: 700; }
   .chip.tempo-on { background: rgba(230,124,115,.12); border-color: rgba(230,124,115,.4); color: #E67C73; font-weight: 700; }
+  .chip-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .chip-label { font-size: 11px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; min-width: 60px; }
   .ex-card textarea {
     width: 100%; background: var(--deep); border: 1px solid rgba(255,255,255,.1);
     border-radius: 12px; padding: 12px 14px; font: 500 12px Montserrat, sans-serif;
@@ -2070,9 +2072,26 @@ function chipButtons(s, ref) {
     brandBtn = `<button class="chip ${s.brand ? 'brand-on' : ''}" onclick="openChipMenu(event, '${ref}', 'brand')">${brandLabel} ▾</button>`;
   }
   // tempo selector
-  const tempoLabel = s.tempo && TEMPOS[s.tempo] ? TEMPOS[s.tempo] : 'Tempo';
+  const tempoLabel = s.tempo && TEMPOS[s.tempo] ? TEMPOS[s.tempo] : 'Normal';
   const tempoBtn = `<button class="chip ${s.tempo ? 'tempo-on' : ''}" onclick="openChipMenu(event, '${ref}', 'tempo')">${tempoLabel} ▾</button>`;
-  return `<button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, '${ref}', 'extra')">${EXTRAS[s.extra] || 'No Tag'} ▾</button>${brandBtn}${gripBtn}${tempoBtn}`;
+  const finisherBtn = `<button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, '${ref}', 'extra')">${EXTRAS[s.extra] || 'None'} ▾</button>`;
+
+  return `<div class="chip-row">
+    <div class="chip-label">Finisher</div>
+    ${finisherBtn}
+  </div>
+  <div class="chip-row">
+    <div class="chip-label">Tempo</div>
+    ${tempoBtn}
+  </div>${brandBtn ? `
+  <div class="chip-row">
+    <div class="chip-label">Machine</div>
+    ${brandBtn}
+  </div>` : ''}${gripBtn ? `
+  <div class="chip-row">
+    <div class="chip-label">Grip</div>
+    ${gripBtn}
+  </div>` : ''}`;
 }
 
 // set addressing: 'pending' | 'c<i>' (current exercise) | 'x<e>_<i>' (completed exercise on review)
