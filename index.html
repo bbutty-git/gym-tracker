@@ -1147,12 +1147,26 @@ let recoveredSets = 0;   // rescued on load, reported once the first screen is u
     if (x.grip === undefined) x.grip = null;   // add grip field to old sets
     if (x.tempo === undefined) x.tempo = null;   // add tempo field to old sets
   }
+  // consolidate machine exercises: remove brand suffixes from names since brand is now selected separately
+  function consolidateExerciseNames(w) {
+    if (!w || !w.exercises) return;
+    w.exercises.forEach(ex => {
+      if (ex.name && hasBrandSuffix(ex.name)) {
+        ex.name = ex.name.replace(/\s*\([^)]+\)\s*$/, '');
+      }
+    });
+  }
+
   const hist = store.history;
   recoveredSets = repairStrandedDrafts(hist);
-  hist.forEach(w => (w.exercises || []).forEach(ex => ex.sets.forEach(normSet)));
+  hist.forEach(w => {
+    consolidateExerciseNames(w);
+    (w.exercises || []).forEach(ex => ex.sets.forEach(normSet));
+  });
   store.history = hist;
   const act = store.active;
   if (act) {
+    consolidateExerciseNames(act);
     (act.exercises || []).forEach(ex => ex.sets.forEach(normSet));
     if (act.current) act.current.sets.forEach(normSet);
     store.active = act;
@@ -2183,13 +2197,7 @@ function renderSetRows() {
 function logSet() {
   const name = document.getElementById('ex-name').value.trim();
   if (!name) { toast('Name the exercise first'); document.getElementById('ex-name').focus(); return; }
-  let finalName = name;
-  const p = workout.current.pending || newPending();
-  // append brand to machine exercise name if one was selected
-  if (isMachineExercise(name) && p.brand && !hasBrandSuffix(name)) {
-    finalName = name + ' (' + p.brand + ')';
-  }
-  workout.current.name = finalName;
+  workout.current.name = name;
   const { reps, weight } = readEntry();
   if (!reps && !weight) { toast('Enter reps and weight'); return; }
   if (p.max) workout.current.sets.forEach(s => s.max = false);
@@ -2263,13 +2271,7 @@ function captureCurrent() {
     document.getElementById('in-reps').value = '';
     document.getElementById('in-weight').value = '';
   }
-  let name = document.getElementById('ex-name').value.trim();
-  const p = workout.current.pending || newPending();
-  // append brand to machine exercise name if one was selected and not already there
-  if (isMachineExercise(name) && p.brand && !hasBrandSuffix(name)) {
-    name = name + ' (' + p.brand + ')';
-  }
-  workout.current.name = name;
+  workout.current.name = document.getElementById('ex-name').value.trim();
   workout.current.notes = document.getElementById('ex-notes').value.trim();
 }
 
