@@ -32,6 +32,8 @@ export interface Exercise {
   name: string;
   notes?: string;
   sets: GymSet[];
+  /** Exercises sharing this id were done as a superset; they sit next to each other. */
+  superset?: string;
 }
 
 export interface Workout {
@@ -91,6 +93,9 @@ export function normalizeSet(raw: {
   type?: string;
   max?: boolean;
   extra?: string | null;
+  grip?: string | null;
+  brand?: string | null;
+  tempo?: string | null;
 }): GymSet {
   const extra = raw.extra && (EXTRAS as readonly string[]).includes(raw.extra) ? (raw.extra as Extra) : null;
   return {
@@ -98,8 +103,25 @@ export function normalizeSet(raw: {
     weight: String(raw.weight ?? '').trim(),
     type: raw.type === 'warmup' ? 'warmup' : 'working',
     max: !!raw.max,
-    extra
+    extra,
+    grip: raw.grip || null,
+    brand: raw.brand || null,
+    tempo: raw.tempo || null
   };
+}
+
+/** Superset number per exercise for display (0 = not in one); a lone member doesn't count. */
+export function supersetNumbers(exercises: Exercise[]): number[] {
+  const no = exercises.map(() => 0);
+  let n = 0;
+  for (let i = 0; i < exercises.length; ) {
+    const id = exercises[i]?.superset;
+    let j = i + 1;
+    while (id && j < exercises.length && exercises[j]?.superset === id) j++;
+    if (j - i > 1) { n++; for (let k = i; k < j; k++) no[k] = n; }
+    i = j;
+  }
+  return no;
 }
 
 /** Only one set per exercise may carry the Max Set flame, same as the app. */

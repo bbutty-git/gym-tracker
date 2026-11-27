@@ -16,6 +16,7 @@ import {
   findWorkout,
   isISODate,
   normalizeSet,
+  supersetNumbers,
   setVolume,
   sortHistory,
   todayISO,
@@ -43,8 +44,21 @@ const setInput = z.object({
 const exerciseInput = z.object({
   name: z.string().min(1).describe('Exercise name, e.g. "Lat Pulldown".'),
   notes: z.string().optional(),
-  sets: z.array(setInput).min(1)
+  sets: z.array(setInput).min(1),
+  superset: z
+    .string()
+    .optional()
+    .describe('Give exercises done as a superset the same label (e.g. "1") and list them next to each other. Leave unset otherwise.')
 });
+
+function toExercise(ex: z.infer<typeof exerciseInput>): Exercise {
+  return {
+    name: ex.name.trim(),
+    notes: ex.notes || '',
+    sets: enforceSingleMax(ex.sets.map(normalizeSet)),
+    ...(ex.superset ? { superset: ex.superset } : {})
+  };
+}
 
 function unitOf(profileUnit: string | undefined): string {
   return profileUnit || 'lbs';
@@ -65,8 +79,9 @@ function detail(w: Workout, unit: string): string {
     `${w.dateISO}${meta ? ` — ${meta}` : ''}${w.duration ? ` (${w.duration})` : ''}   id: ${w.startedAt}`,
     ''
   ];
-  w.exercises.forEach((ex) => {
-    lines.push(ex.name);
+  const ssNo = supersetNumbers(w.exercises);
+  w.exercises.forEach((ex, e) => {
+    lines.push(ssNo[e] ? `${ex.name}  [superset ${ssNo[e]}]` : ex.name);
     ex.sets.forEach((s, i) => lines.push(`  ${i + 1}. ${describeSet(s, unit)}`));
     if (ex.notes) lines.push(`  note: ${ex.notes}`);
     lines.push('');
@@ -258,13 +273,7 @@ export function buildServer(session: Session): McpServer {
         dateISO: date,
         startedAt: now,
         endedAt: now,
-        exercises: exercises.map(
-          (ex): Exercise => ({
-            name: ex.name.trim(),
-            notes: ex.notes || '',
-            sets: enforceSingleMax(ex.sets.map(normalizeSet))
-          })
-        ),
+        exercises: exercises.map(toExercise),
         synced: false,
         editedAt: now // must beat any copy the phone holds, or the merge drops this
       };
@@ -308,11 +317,7 @@ export function buildServer(session: Session): McpServer {
         if (bodyParts) w.bodyParts = bodyParts;
         if (comment !== undefined) w.comment = comment;
         if (exercises) {
-          w.exercises = exercises.map((ex) => ({
-            name: ex.name.trim(),
-            notes: ex.notes || '',
-            sets: enforceSingleMax(ex.sets.map(normalizeSet))
-          }));
+          w.exercises = exercises.map(toExercise);
         }
         w.editedAt = Date.now();
         w.synced = false;
