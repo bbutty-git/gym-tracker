@@ -2218,8 +2218,9 @@ function logSet() {
   workout.current.name = name;
   const { reps, weight } = readEntry();
   if (!reps && !weight) { toast('Enter reps and weight'); return; }
+  const p = workout.current.pending;
   if (p.max) workout.current.sets.forEach(s => s.max = false);
-  workout.current.sets.push({ reps, weight, type: p.type, max: p.max, extra: p.extra, grip: p.grip || null, tempo: p.tempo || null });
+  workout.current.sets.push({ reps, weight, type: p.type, max: p.max, extra: p.extra, grip: p.grip || null, tempo: p.tempo || null, brand: p.brand || null });
   workout.current.pending = newPending();
   workout.current.notes = document.getElementById('ex-notes').value.trim();
   store.active = workout;
