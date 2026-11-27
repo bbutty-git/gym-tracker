@@ -138,6 +138,7 @@ export function describeSet(s: GymSet, unit: string): string {
     s.type === 'warmup' ? 'warm up' : null,
     s.max ? 'max set' : null,
     s.extra ? s.extra : null,
+    s.brand ? s.brand : null,
     s.grip ? s.grip : null,
     s.tempo ? s.tempo : null
   ].filter(Boolean);
