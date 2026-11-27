@@ -57,7 +57,8 @@
 
   /* ---------- shared ---------- */
   .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .page-head h1 { font-size: 26px; font-weight: 800; line-height: 1.1; }
+  .page-head > div { min-width: 0; }
+  .page-head h1 { font-size: clamp(21px, 6.4vw, 26px); font-weight: 800; line-height: 1.1; }
   .page-head .sub { font-size: 13px; font-weight: 600; color: var(--dim); margin-top: 5px; }
   .head-actions { display: flex; align-items: center; gap: 10px; }
   .icon-btn {
@@ -107,7 +108,7 @@
 
   /* ---------- home / start page ---------- */
   .greet-day { font-size: 13px; font-weight: 600; color: var(--dim); }
-  .greet-h { font-size: 26px; font-weight: 800; line-height: 1.1; margin-top: 2px; }
+  .greet-h { font-size: clamp(21px, 6.4vw, 26px); font-weight: 800; line-height: 1.1; margin-top: 2px; white-space: nowrap; }
   .start-btn {
     background: var(--pink); border: none; width: 100%; cursor: pointer; font-family: inherit; color: #fff;
     border-radius: 18px; padding: 20px; text-align: center; box-shadow: 0 10px 30px rgba(247,37,133,.4);
@@ -182,14 +183,14 @@
   .load-help code { background: var(--surface); padding: 1px 5px; border-radius: 5px; font-size: 11px; color: var(--text); }
   .load-help > div { margin-top: 8px; }
   /* exercises already logged — tap to go back */
-  .ex-done { display: flex; gap: 6px; margin-top: 9px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
-  .ex-done::-webkit-scrollbar { display: none; }
+  .ex-done { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
   .exd-chip {
-    flex-shrink: 0; background: var(--deep); border: 1px solid var(--border);
-    border-radius: 99px; padding: 7px 11px; font: 700 11px Montserrat, sans-serif;
-    color: rgba(255,255,255,.7); cursor: pointer; white-space: nowrap; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-width: 0; height: 32px;
+    background: var(--deep); border: 1px solid var(--border); border-radius: 99px; padding: 0 11px;
+    font: 700 11.5px Montserrat, sans-serif; color: rgba(255,255,255,.75); cursor: pointer; white-space: nowrap;
   }
-  .exd-chip span { color: var(--pink); margin-left: 3px; }
+  .exd-chip .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .exd-chip .c { flex-shrink: 0; color: var(--pink); }
   .exd-chip:active { background: var(--pink-soft); border-color: var(--pink-line); color: var(--text); }
   /* "next up" from a loaded plan */
   .plan-next {
@@ -266,9 +267,9 @@
   .last-chip { background: var(--deep); border-radius: 99px; padding: 5px 10px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,.7); }
   .last-empty { font-size: 12.5px; font-weight: 500; color: var(--dim); line-height: 1.5; }
   .stat-row { display: flex; gap: 10px; }
-  .stat { flex: 1; background: var(--surface); border-radius: 14px; padding: 12px; text-align: center; }
+  .stat { flex: 1; min-width: 0; background: var(--surface); border-radius: 14px; padding: 12px 6px; text-align: center; }
   .stat .num { font-size: 18px; font-weight: 800; }
-  .stat .lbl { font-size: 9px; font-weight: 600; letter-spacing: .12em; color: var(--dim); margin-top: 2px; }
+  .stat .lbl { font-size: 9px; font-weight: 600; letter-spacing: .1em; color: var(--dim); margin-top: 2px; white-space: nowrap; }
   .link-row {
     display: flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 0;
     font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); cursor: pointer;
@@ -280,9 +281,10 @@
     border: 1px solid rgba(255,180,84,.35); border-radius: 16px; padding: 14px;
   }
   .deload-card .dl-icon { width: 44px; height: 44px; border-radius: 14px; background: rgba(255,180,84,.12); display: grid; place-items: center; flex-shrink: 0; }
-  .deload-card .dl-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
-  .deload-card .dl-value { font-size: 20px; font-weight: 800; color: var(--amber); margin-top: 1px; }
-  .deload-card .dl-date { font-size: 11px; font-weight: 600; color: var(--dimmer); white-space: nowrap; }
+  .deload-card .dl-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .deload-card .dl-sub { display: flex; align-items: baseline; gap: 8px; min-width: 0; margin-top: 1px; }
+  .deload-card .dl-value { flex-shrink: 0; font-size: 20px; font-weight: 800; color: var(--amber); }
+  .deload-card .dl-date { min-width: 0; font-size: 11px; font-weight: 600; color: var(--dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .deload-card .dl-reset {
     background: rgba(255,180,84,.1); border: 1px solid rgba(255,180,84,.3); color: var(--amber);
     width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
@@ -308,24 +310,25 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
     padding: 16px; display: flex; flex-direction: column; gap: 12px;
   }
-  .ex-card-top { display: flex; justify-content: space-between; align-items: center; }
-  .ex-count { font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--pink); }
-  .ex-prev { font-size: 11px; font-weight: 600; color: var(--dimmer); }
+  .ex-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-width: 0; }
+  .ex-count { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--pink); }
+  .ex-prev { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; color: var(--dimmer); }
   .ex-name-wrap { position: relative; }
   .ex-name-field {
-    display: flex; align-items: center; gap: 12px; background: var(--deep);
-    border: 1.5px solid rgba(255,255,255,.1); border-radius: 12px; padding: 0 16px;
+    display: flex; align-items: center; gap: 10px; background: var(--deep);
+    border: 1.5px solid rgba(255,255,255,.1); border-radius: 12px; padding: 0 4px 0 14px;
     min-height: 48px; transition: border-color 0.15s ease;
   }
   .ex-name-field:focus-within { border-color: var(--pink); box-shadow: 0 0 0 2px rgba(247,37,133,.1); }
-  .ex-name-field svg { flex-shrink: 0; font-size: 18px; }
-  .ex-name-field input {
-    flex: 1; min-width: 0; background: none; border: none; outline: none;
-    padding: 14px 0; font: 600 16px Montserrat, sans-serif; color: var(--text);
+  .ex-name-field svg { flex-shrink: 0; }
+  /* a textarea so long names wrap onto a second line instead of being cut off */
+  .ex-name-field textarea {
+    flex: 1; min-width: 0; display: block; background: none; border: none; outline: none; resize: none; overflow: hidden;
+    padding: 13px 0; font: 600 16px/1.3 Montserrat, sans-serif; color: var(--text);
   }
-  .ex-name-field input::placeholder { color: var(--dimmer); }
-  .ex-clear { background: none; border: none; color: var(--dimmer); font-size: 16px; cursor: pointer; padding: 10px 12px; margin: -4px; display: none; min-height: 36px; min-width: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
-  .ex-clear.show { display: flex; }
+  .ex-name-field textarea::placeholder { color: var(--dimmer); }
+  .ex-clear { display: none; flex-shrink: 0; width: 40px; height: 40px; place-items: center; background: none; border: none; color: var(--dimmer); font-size: 15px; cursor: pointer; border-radius: 8px; }
+  .ex-clear.show { display: grid; }
   .ac-list {
     position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 5;
     background: #232329; border: 1px solid var(--border2); border-radius: 14px;
@@ -343,12 +346,16 @@
   .ac-item.add .plus { width: 16px; text-align: center; font-weight: 700; }
 
   .set-row {
-    display: flex; flex-direction: column; gap: 12px; background: var(--deep);
-    border-radius: 12px; padding: 14px 16px; border: 1px solid transparent;
+    display: flex; flex-direction: column; gap: 10px; background: var(--deep);
+    border-radius: 12px; padding: 12px; border: 1px solid transparent; min-width: 0;
   }
   .set-row.max { border-color: var(--pink-line); }
   .set-row.entry { border-color: rgba(255,255,255,.12); }
-  .set-row .top { display: flex; align-items: center; gap: 10px; }
+  .set-row.editing { border-color: var(--pink-line); }
+  /* a logged set is a one-line summary; tap it to edit */
+  .set-row.logged { padding: 6px 4px 6px 12px; gap: 4px; cursor: pointer; transition: background .15s ease; }
+  .set-row.logged:active { background: #141418; }
+  .set-row .top { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .set-num {
     width: 24px; height: 24px; border-radius: 8px; background: var(--pink-soft);
     color: var(--pink); display: grid; place-items: center; font-size: 11px; font-weight: 700;
@@ -356,57 +363,65 @@
   }
   .set-num.muted { background: rgba(255,255,255,.08); color: rgba(255,255,255,.6); }
   .set-del {
-    background: none; border: none; color: var(--dimmer); cursor: pointer; font-size: 16px;
-    line-height: 1; padding: 8px 10px; margin-left: 8px; border-radius: 8px; flex-shrink: 0;
-    min-width: 36px; min-height: 36px; display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s ease;
+    background: none; border: none; color: var(--dimmer); cursor: pointer; font-size: 15px; line-height: 1;
+    width: 38px; height: 38px; border-radius: 8px; flex-shrink: 0; display: grid; place-items: center;
   }
   .set-del:active { background: rgba(229,83,75,.2); }
-  .set-row .reps-val, .set-row .wt-val { font-size: 14px; font-weight: 700; cursor: pointer; }
-  .set-row .wt-val { margin-left: auto; }
+  .set-row .sv { font-size: 15px; font-weight: 700; white-space: nowrap; }
+  .set-row .sv.wt { margin-left: auto; }
   .set-row .u { font-size: 11px; font-weight: 500; color: var(--dim); }
+  .set-tags { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 8px 4px 32px; min-width: 0; }
+  .set-tag {
+    font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 99px; border: 1px solid;
+    white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .set-tag.extra { color: var(--cyan); background: rgba(76,201,240,.1); border-color: rgba(76,201,240,.3); }
+  .set-tag.tempo { color: #E67C73; background: rgba(230,124,115,.1); border-color: rgba(230,124,115,.3); }
+  .set-tag.grip { color: #FFC107; background: rgba(255,193,7,.1); border-color: rgba(255,193,7,.3); }
+  .set-tag.brand { color: #64C896; background: rgba(100,200,150,.1); border-color: rgba(100,200,150,.3); }
   .set-row .top input {
-    flex: 1; min-width: 0; background: var(--inset); border: 1px solid rgba(255,255,255,.1);
-    border-radius: 10px; padding: 12px 14px; font: 600 15px Montserrat, sans-serif; color: var(--text); outline: none;
-    min-height: 44px; transition: border-color 0.15s ease;
+    flex: 1 1 0; width: 0; min-width: 0; height: 44px; padding: 0 6px; text-align: center;
+    background: var(--inset); border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
+    font: 600 16px Montserrat, sans-serif; color: var(--text); outline: none; transition: border-color .15s ease;
   }
   .set-row .top input:focus { border-color: var(--pink); box-shadow: 0 0 0 2px rgba(247,37,133,.15); }
   .set-row .top input::placeholder { color: var(--dimmer); }
   .next-set-btn {
-    border: none; border-radius: 10px; background: var(--pink); color: #fff;
-    font: 700 13px Montserrat, sans-serif; padding: 12px 16px; white-space: nowrap; cursor: pointer;
-    min-height: 44px; display: flex; align-items: center; justify-content: center; transition: background 0.15s ease;
+    flex-shrink: 0; height: 44px; padding: 0 12px; border: none; border-radius: 10px;
+    background: var(--pink); color: #fff; font: 700 13px Montserrat, sans-serif; white-space: nowrap;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s ease;
   }
   .next-set-btn:active { background: #d91a71; }
-  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
-  .entry-second { display: flex; align-items: flex-start; gap: 12px; margin-top: 12px; }
-  .entry-second .chip-row { flex: 1; min-width: 0; }
+  .chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
   .entry-clear {
-    flex-shrink: 0; background: none; border: 1px solid rgba(229,83,75,.35); color: var(--dimmer);
-    cursor: pointer; font: 700 12px Montserrat, sans-serif; padding: 10px 14px; border-radius: 8px; white-space: nowrap;
-    min-height: 44px; display: flex; align-items: center; justify-content: center;
+    margin-left: auto; flex-shrink: 0; height: 34px; padding: 0 8px; border: none; border-radius: 8px;
+    background: none; color: var(--dimmer); font: 700 11.5px Montserrat, sans-serif; white-space: nowrap; cursor: pointer;
   }
   .entry-clear:active { background: rgba(229,83,75,.2); color: var(--text); }
+  /* label + value in one pill, so the label can never wrap away from its button */
   .chip {
-    border: 1px solid rgba(255,255,255,.15); border-radius: 99px; padding: 10px 14px;
-    font-size: 11px; font-weight: 600; color: var(--dim); white-space: nowrap;
-    cursor: pointer; background: transparent; font-family: inherit; display: inline-flex; align-items: center; gap: 5px;
-    min-height: 36px; transition: all 0.15s ease;
+    display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-width: 0; min-height: 34px;
+    padding: 0 11px; border: 1px solid rgba(255,255,255,.15); border-radius: 99px; background: transparent;
+    font: 600 12px Montserrat, sans-serif; color: rgba(255,255,255,.82); white-space: nowrap;
+    cursor: pointer; transition: background .15s ease;
   }
   .chip:active { background: rgba(255,255,255,.08); }
-  .chip.extra-on { background: rgba(76,201,240,.12); border-color: rgba(76,201,240,.4); color: var(--cyan); font-weight: 700; }
-  .chip.grip-on { background: rgba(255,193,7,.12); border-color: rgba(255,193,7,.4); color: #FFC107; font-weight: 700; }
-  .chip.brand-on { background: rgba(100,200,150,.12); border-color: rgba(100,200,150,.4); color: #64C896; font-weight: 700; }
-  .chip.tempo-on { background: rgba(230,124,115,.12); border-color: rgba(230,124,115,.4); color: #E67C73; font-weight: 700; }
-  .chip-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-  .chip-label { font-size: 11px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; min-width: auto; }
-  .ex-card textarea {
+  .chip .ck { flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .chip .cv { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+  .chip .caret { flex-shrink: 0; font-size: 9px; opacity: .55; }
+  .chip.extra-on { background: rgba(76,201,240,.12); border-color: rgba(76,201,240,.4); color: var(--cyan); }
+  .chip.grip-on { background: rgba(255,193,7,.12); border-color: rgba(255,193,7,.4); color: #FFC107; }
+  .chip.brand-on { background: rgba(100,200,150,.12); border-color: rgba(100,200,150,.4); color: #64C896; }
+  .chip.tempo-on { background: rgba(230,124,115,.12); border-color: rgba(230,124,115,.4); color: #E67C73; }
+  .chip.type-working, .chip.max-on { background: var(--pink-soft); border-color: var(--pink-line); color: var(--pink); }
+  .chip.type-warmup { background: rgba(255,180,84,.12); border-color: rgba(255,180,84,.4); color: var(--amber); }
+  #ex-notes {
     width: 100%; background: var(--deep); border: 1px solid rgba(255,255,255,.1);
-    border-radius: 12px; padding: 12px 14px; font: 500 12px Montserrat, sans-serif;
+    border-radius: 12px; padding: 12px 14px; font: 500 14px Montserrat, sans-serif;
     color: var(--text); min-height: 52px; resize: none; outline: none;
   }
-  .ex-card textarea:focus { border-color: var(--pink); }
-  .ex-card textarea::placeholder { color: var(--dimmer); }
+  #ex-notes:focus { border-color: var(--pink); }
+  #ex-notes::placeholder { color: var(--dimmer); }
   .perf-link {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     padding: 8px 0; font-size: 14px; font-weight: 600; color: var(--pink); cursor: pointer;
@@ -414,11 +429,12 @@
   }
   .perf-link:active { opacity: 0.7; }
   /* "what did I do last time" button on the log screen */
+  /* block, not flex: flex would split the text from its <b> and swallow the space between */
   .recent-btn {
-    display: flex; width: 100%; align-items: center; justify-content: center;
+    display: block; width: 100%;
     background: var(--surface); border: 1px solid var(--pink-line); border-radius: 12px;
-    padding: 15px 16px; font: 700 13px Montserrat, sans-serif; color: var(--pink);
-    cursor: pointer; text-align: center; line-height: 1.45; min-height: 48px; transition: all 0.15s ease;
+    padding: 14px 16px; font: 700 13px Montserrat, sans-serif; color: var(--pink);
+    cursor: pointer; text-align: center; line-height: 1.45; transition: background 0.15s ease;
   }
   .recent-btn:active { background: var(--pink-soft); }
   .rs-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 13px 14px; }
@@ -436,7 +452,8 @@
 
   .chip-menu {
     position: fixed; z-index: 70; background: #232329; border: 1px solid var(--border2);
-    border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.6); overflow: hidden; min-width: 160px;
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.6); min-width: 170px;
+    max-width: calc(100vw - 20px); max-height: calc(100dvh - 20px); overflow-y: auto;
   }
   .chip-menu .mi {
     padding: 14px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px;
@@ -456,16 +473,16 @@
   #sync-status.ok { display: block; background: rgba(43,217,169,.1); color: var(--green); border: 1px solid rgba(43,217,169,.35); }
   #sync-status.err { display: block; background: rgba(229,83,75,.1); color: #ff8a84; border: 1px solid rgba(229,83,75,.35); }
   #sync-status.busy { display: block; background: var(--surface); color: var(--dim); border: 1px solid var(--border); }
-  .hist-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 15px 16px; cursor: pointer; transition: all 0.15s ease; }
-  .hist-card:active { background: rgba(255,255,255,.04); }
-  .hist-card .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-  .hist-card .hd .d { font-size: 14px; font-weight: 700; }
-  .hist-card .hd .m { font-size: 12px; font-weight: 600; color: var(--dimmer); }
+  .hist-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 15px 16px; min-width: 0; }
+  .hist-card .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 0; }
+  .hist-card .hd .d { min-width: 0; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+  .hist-card .m { font-size: 12px; font-weight: 600; color: var(--dimmer); line-height: 1.4; }
+  .hist-card .hd .m { flex-shrink: 0; }
   .hist-ex { margin-top: 12px; }
   .hist-ex + .hist-ex { margin-top: 14px; }
   .hist-ex .exn { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.9); }
   .hist-chips { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-  .hist-chip { background: var(--deep); border-radius: 99px; padding: 6px 12px; font-size: 12px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+  .hist-chip { background: var(--deep); border-radius: 99px; padding: 6px 12px; font-size: 12px; font-weight: 700; white-space: nowrap; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 5px; max-width: 100%; }
   .hist-chip.max { background: var(--pink-soft); border: 1px solid rgba(247,37,133,.4); color: var(--pink); }
   .hist-chip .tech-tag { font-size: 9px; font-weight: 800; color: var(--cyan); letter-spacing: .06em; }
   .hist-note { margin-top: 10px; font-size: 12px; font-weight: 500; color: var(--dimmer); font-style: italic; }
@@ -648,9 +665,11 @@
       </div>
       <div style="flex:1;min-width:0;">
         <div class="dl-label">Since last deload</div>
-        <div class="dl-value" id="deload-days">—</div>
+        <div class="dl-sub">
+          <span class="dl-value" id="deload-days">—</span>
+          <span class="dl-date" id="deload-date"></span>
+        </div>
       </div>
-      <div class="dl-date" id="deload-date"></div>
       <button class="dl-reset" onclick="askResetDeload()" title="Reset deload counter">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.5 9.5 0 00-6.7 2.8L3 8"></path><path d="M3 3v5h5"></path></svg>
       </button>
@@ -716,8 +735,8 @@
       <div class="ex-name-wrap">
         <div class="ex-name-field">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
-          <input type="text" id="ex-name" placeholder="Type an exercise…" autocomplete="off" autocapitalize="words">
-          <button class="ex-clear" id="ex-clear" onclick="clearExName()">✕</button>
+          <textarea id="ex-name" rows="1" placeholder="Type an exercise…" autocomplete="off" autocapitalize="words" enterkeyhint="done" spellcheck="false"></textarea>
+          <button class="ex-clear" id="ex-clear" onclick="clearExName()" aria-label="Clear exercise name">✕</button>
         </div>
         <div class="ac-list" id="ac-list"></div>
       </div>
@@ -727,14 +746,11 @@
       <div class="set-row entry" id="entry-block">
         <div class="top">
           <div class="set-num muted" id="entry-num">1</div>
-          <input type="text" inputmode="numeric" id="in-reps" placeholder="Reps">
-          <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight">
+          <input type="text" inputmode="numeric" id="in-reps" placeholder="Reps" aria-label="Reps">
+          <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight" aria-label="Weight">
           <button class="next-set-btn" onclick="logSet()">Next set →</button>
         </div>
-        <div class="entry-second">
-          <div class="chip-row" id="pending-chips"></div>
-          <button class="entry-clear" id="entry-clear" onclick="clearEntry()" title="Clear this set">🗑 Clear</button>
-        </div>
+        <div class="chip-row" id="pending-chips"></div>
       </div>
 
       <textarea id="ex-notes" placeholder="Notes…"></textarea>
@@ -767,7 +783,7 @@
     </div>
     <div id="summary-meta-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
     <div class="summary-stats" id="summary-stats"></div>
-    <div class="maxlift-hint" style="padding:0 2px;">Tap any weight, reps, or tag to edit. Tap a set number to remove it.</div>
+    <div class="maxlift-hint" style="padding:0 2px;">Tap a set to edit it, or 🗑 to remove it. Tap an exercise name to rename it.</div>
     <div id="summary-cards" style="display:flex;flex-direction:column;gap:10px;"></div>
     <button class="add-ex-btn" onclick="addExerciseToWorkout()">+ Add exercise</button>
     <div class="cmt-wrap">
@@ -856,7 +872,7 @@
           <div class="hint">for machine exercises</div>
         </div>
         <div class="card-list" id="brands-list"></div>
-        <div class="maxlift-hint" style="padding:0 2px;">When you pick a machine exercise mid-workout, you'll be asked which brand — each brand is tracked as its own exercise.</div>
+        <div class="maxlift-hint" style="padding:0 2px;">On a machine exercise, pick the brand with the Machine button on each set. It stays one exercise — the brand is saved with the set.</div>
       </div>
 
       <div class="set-group">
@@ -975,14 +991,6 @@
   </div>
 </div>
 
-<!-- ============ MACHINE BRAND PICKER ============ -->
-<div class="modal-backdrop confirm-backdrop" id="brand-modal" onclick="if(event.target===this)closeBrandPicker()">
-  <div class="confirm-card">
-    <div class="section-label">Which machine?</div>
-    <div id="brand-ex-name" style="font-size:16px;font-weight:800;margin:4px 0 14px;"></div>
-    <div id="brand-options" style="display:flex;flex-direction:column;gap:8px;"></div>
-  </div>
-</div>
 
 <!-- ============ RECOVERY CHECK-IN ============ -->
 <div class="modal-backdrop confirm-backdrop" id="recovery-modal" onclick="if(event.target===this){recoveryQueue=[];nextRecovery();}">
@@ -1142,6 +1150,27 @@ function repairStrandedDrafts(hist) {
 function announceRecovered(n) {
   if (n) toast(n + (n === 1 ? ' set was' : ' sets were') + ' recovered — check History');
 }
+// Brands used to be baked into the name ("Leg Press (Cybex)"), which split one exercise
+// into several. Now the brand lives on each set, so move it there and strip the name.
+// Runs on load and on every cloud merge: a device on an older build keeps sending the
+// old names back, and the merge would otherwise restore them.
+function splitBrandFromName(ex, brands) {
+  const m = /^(.*\S)\s*\(([^)]+)\)\s*$/.exec((ex && ex.name) || '');
+  if (!m) return false;
+  const base = m[1], suffix = m[2].trim();
+  const known = brands.find(b => b.toLowerCase() === suffix.toLowerCase());
+  if (!known && !isMachineExercise(base)) return false;   // "Curl (EZ Bar)" isn't a brand
+  ex.name = base;
+  (ex.sets || []).forEach(s => { if (!s.brand) s.brand = known || suffix; });
+  return true;
+}
+function consolidateBrandNames(w, brands) {
+  if (!w) return false;
+  let changed = false;
+  (w.exercises || []).forEach(ex => { if (splitBrandFromName(ex, brands)) changed = true; });
+  if (w.current && splitBrandFromName(w.current, brands)) changed = true;
+  return changed;
+}
 
 let recoveredSets = 0;   // rescued on load, reported once the first screen is up
 // migrate legacy units + set shapes
@@ -1165,26 +1194,17 @@ let recoveredSets = 0;   // rescued on load, reported once the first screen is u
     if (x.grip === undefined) x.grip = null;   // add grip field to old sets
     if (x.tempo === undefined) x.tempo = null;   // add tempo field to old sets
   }
-  // consolidate machine exercises: remove brand suffixes from names since brand is now selected separately
-  function consolidateExerciseNames(w) {
-    if (!w || !w.exercises) return;
-    w.exercises.forEach(ex => {
-      if (ex.name && hasBrandSuffix(ex.name)) {
-        ex.name = ex.name.replace(/\s*\([^)]+\)\s*$/, '');
-      }
-    });
-  }
-
   const hist = store.history;
   recoveredSets = repairStrandedDrafts(hist);
+  const brands = s.brands || [];
   hist.forEach(w => {
-    consolidateExerciseNames(w);
+    if (consolidateBrandNames(w, brands)) w.editedAt = Date.now();   // the cleaned copy must win the next merge
     (w.exercises || []).forEach(ex => ex.sets.forEach(normSet));
   });
   store.history = hist;
   const act = store.active;
   if (act) {
-    consolidateExerciseNames(act);
+    consolidateBrandNames(act, brands);
     (act.exercises || []).forEach(ex => ex.sets.forEach(normSet));
     if (act.current) act.current.sets.forEach(normSet);
     store.active = act;
@@ -1528,7 +1548,7 @@ function renderRecentBtn() {
   if (!parts.length) { btn.style.display = 'none'; return; }
   const n = recentSessionsForParts(parts, 5).length;
   if (!n) { btn.style.display = 'none'; return; }
-  btn.style.display = 'flex';
+  btn.style.display = '';
   btn.innerHTML = `📋 What I did last — <b>${escapeHtml(parts.join(', '))}</b>`;
 }
 function daysAgoLabel(iso) {
@@ -1895,7 +1915,7 @@ function renderDoneExercises() {
   el.style.display = 'flex';
   el.innerHTML = list.map((ex, i) =>
     `<button class="exd-chip" onclick="goToExercise(${i})" title="Go back to ${escapeAttr(ex.name)}">` +
-    `${escapeHtml(ex.name)} <span>${ex.sets.length}</span></button>`).join('');
+    `<span class="n">${escapeHtml(ex.name)}</span><span class="c">${ex.sets.length}</span></button>`).join('');
 }
 function renderPlanNext() {
   const el = document.getElementById('plan-next');
@@ -1958,6 +1978,7 @@ function openLogScreen(focusName) {
   renderRecoNote();
   renderExerciseCard();
   showScreen('log');
+  fitExName();
   // a brand-new workout opens the Workout Type picker first (not the exercise name)
   if (focusName) setTimeout(() => { try { openTypeMenu(); } catch (e) {} }, 150);
 }
@@ -2079,6 +2100,7 @@ function renderExerciseCard() {
   renderDoneExercises();
   const nameInput = document.getElementById('ex-name');
   nameInput.value = workout.current.name || '';
+  fitExName();
   document.getElementById('ex-clear').classList.toggle('show', !!nameInput.value);
   document.getElementById('ex-notes').value = workout.current.notes || '';
   document.getElementById('in-reps').value = '';
@@ -2089,41 +2111,39 @@ function renderExerciseCard() {
   renderPlanNext();
 }
 
-function chipButtons(s, ref) {
-  const exName = workout && workout.current ? workout.current.name : '';
+// the exercise a set key belongs to: review-screen keys point into workout.exercises
+function exNameForKey(key) {
+  const m = /^x(\d+)_/.exec(key || '');
+  if (m) { const ex = workout && workout.exercises[+m[1]]; return ex ? ex.name : ''; }
+  return workout && workout.current ? workout.current.name : '';
+}
+function gripLabel(s, exName) {
+  if (!s.grip) return '';
   const grips = gripsForExercise(exName);
-  let gripBtn = '';
-  if (grips) {
-    const gripLabel = s.grip && grips[s.grip] ? grips[s.grip] : 'Grip';
-    gripBtn = `<button class="chip ${s.grip ? 'grip-on' : ''}" onclick="openChipMenu(event, '${ref}', 'grip')">${gripLabel} ▾</button>`;
-  }
-  // brand selector for machine exercises (pending set only, before name is finalized)
-  let brandBtn = '';
-  if (ref === 'pending' && exName && isMachineExercise(exName) && !hasBrandSuffix(exName)) {
-    const brandLabel = s.brand || 'Machine';
-    brandBtn = `<button class="chip ${s.brand ? 'brand-on' : ''}" onclick="openChipMenu(event, '${ref}', 'brand')">${brandLabel} ▾</button>`;
-  }
-  // tempo selector
-  const tempoLabel = s.tempo && TEMPOS[s.tempo] ? TEMPOS[s.tempo] : 'Normal';
-  const tempoBtn = `<button class="chip ${s.tempo ? 'tempo-on' : ''}" onclick="openChipMenu(event, '${ref}', 'tempo')">${tempoLabel} ▾</button>`;
-  const finisherBtn = `<button class="chip ${EXTRAS[s.extra] ? 'extra-on' : ''}" onclick="openChipMenu(event, '${ref}', 'extra')">${EXTRAS[s.extra] || 'None'} ▾</button>`;
-
-  return `<div class="chip-row">
-    <div class="chip-label">Finisher</div>
-    ${finisherBtn}
-  </div>
-  <div class="chip-row">
-    <div class="chip-label">Tempo</div>
-    ${tempoBtn}
-  </div>${brandBtn ? `
-  <div class="chip-row">
-    <div class="chip-label">Machine</div>
-    ${brandBtn}
-  </div>` : ''}${gripBtn ? `
-  <div class="chip-row">
-    <div class="chip-label">Grip</div>
-    ${gripBtn}
-  </div>` : ''}`;
+  return (grips && grips[s.grip]) || s.grip;
+}
+function attrChip(ref, kind, label, value, onClass) {
+  return `<button class="chip ${onClass}" onclick="openChipMenu(event, '${ref}', '${kind}')">` +
+    `<span class="ck">${label}</span><span class="cv">${escapeHtml(value)}</span><span class="caret">▾</span></button>`;
+}
+function chipButtons(s, ref) {
+  const exName = exNameForKey(ref);
+  const chips = [
+    attrChip(ref, 'extra', 'Finisher', EXTRAS[s.extra] || 'None', EXTRAS[s.extra] ? 'extra-on' : ''),
+    attrChip(ref, 'tempo', 'Tempo', TEMPOS[s.tempo] || 'Normal', TEMPOS[s.tempo] ? 'tempo-on' : '')
+  ];
+  if (exName && isMachineExercise(exName)) chips.push(attrChip(ref, 'brand', 'Machine', s.brand || '—', s.brand ? 'brand-on' : ''));
+  if (gripsForExercise(exName)) chips.push(attrChip(ref, 'grip', 'Grip', gripLabel(s, exName) || '—', s.grip ? 'grip-on' : ''));
+  return chips.join('');
+}
+// read-only badges for whatever is set on a logged set (nothing shown for defaults)
+function setTagsHtml(s, exName) {
+  const t = [];
+  if (EXTRAS[s.extra]) t.push(`<span class="set-tag extra">${escapeHtml(EXTRAS[s.extra])}</span>`);
+  if (TEMPOS[s.tempo]) t.push(`<span class="set-tag tempo">${escapeHtml(TEMPOS[s.tempo])}</span>`);
+  if (s.brand) t.push(`<span class="set-tag brand">${escapeHtml(s.brand)}</span>`);
+  if (s.grip) t.push(`<span class="set-tag grip">${escapeHtml(gripLabel(s, exName))}</span>`);
+  return t.length ? `<div class="set-tags">${t.join('')}</div>` : '';
 }
 
 // set addressing: 'pending' | 'c<i>' (current exercise) | 'x<e>_<i>' (completed exercise on review)
@@ -2156,21 +2176,26 @@ function onSetEditInput() {
 }
 // one row for a committed set — used on the log screen and the review screen
 function setRowHtml(s, key, num) {
-  const u = unit();
-  const d = (editingKey === key && setEditDraft) ? setEditDraft : null;
-  const vals = editingKey === key
-    ? `<input type="text" inputmode="numeric" id="edit-reps" oninput="onSetEditInput()" value="${escapeAttr(d ? d.reps : String(s.reps))}" placeholder="Reps">
-       <input type="text" inputmode="decimal" id="edit-weight" oninput="onSetEditInput()" value="${escapeAttr(d ? d.weight : String(s.weight))}" placeholder="Weight">
-       <button class="next-set-btn" onclick="saveEditSet()">✓ Save</button>`
-    : `<div class="reps-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.reps))} <span class="u">reps</span></div>
-       <div class="wt-val" onclick="startEditSet('${key}')">${escapeHtml(String(s.weight))} <span class="u">${u}</span></div>
-       <button class="set-del" onclick="askDeleteSet('${key}')" title="Delete set" aria-label="Delete set">🗑</button>`;
-  return `<div class="set-row ${s.max ? 'max' : ''}">
+  if (editingKey === key) {
+    const d = setEditDraft;
+    return `<div class="set-row editing">
+      <div class="top">
+        <div class="set-num">${num}</div>
+        <input type="text" inputmode="numeric" id="edit-reps" oninput="onSetEditInput()" value="${escapeAttr(d ? d.reps : String(s.reps))}" placeholder="Reps" aria-label="Reps">
+        <input type="text" inputmode="decimal" id="edit-weight" oninput="onSetEditInput()" value="${escapeAttr(d ? d.weight : String(s.weight))}" placeholder="${unit()}" aria-label="Weight">
+        <button class="next-set-btn" onclick="saveEditSet()">✓ Save</button>
+      </div>
+      <div class="chip-row">${chipButtons(s, key)}</div>
+    </div>`;
+  }
+  return `<div class="set-row logged ${s.max ? 'max' : ''}" onclick="startEditSet('${key}')" title="Tap to edit">
     <div class="top">
       <div class="set-num">${num}</div>
-      ${vals}
+      <div class="sv">${escapeHtml(String(s.reps))} <span class="u">reps</span></div>
+      <div class="sv wt">${escapeHtml(String(s.weight))} <span class="u">${unit()}</span></div>
+      <button class="set-del" onclick="event.stopPropagation(); askDeleteSet('${key}')" title="Delete set" aria-label="Delete set">🗑</button>
     </div>
-    <div class="chip-row">${chipButtons(s, key)}</div>
+    ${setTagsHtml(s, exNameForKey(key))}
   </div>`;
 }
 
@@ -2208,7 +2233,8 @@ function renderSetRows() {
   const el = document.getElementById('set-rows');
   el.innerHTML = workout.current.sets.map((s, i) => setRowHtml(s, 'c' + i, i + 1)).join('');
   document.getElementById('entry-num').textContent = workout.current.sets.length + 1;
-  document.getElementById('pending-chips').innerHTML = chipButtons(workout.current.pending, 'pending');
+  document.getElementById('pending-chips').innerHTML = chipButtons(workout.current.pending, 'pending') +
+    `<button class="entry-clear" onclick="clearEntry()" title="Clear this set">Clear</button>`;
   renderEntryPlaceholders();
 }
 
@@ -2278,14 +2304,14 @@ function readEntry() {
 function renderEntryPlaceholders() {
   const prev = workout.current.sets[workout.current.sets.length - 1];
   document.getElementById('in-reps').placeholder = prev ? String(prev.reps) : 'Reps';
-  document.getElementById('in-weight').placeholder = prev ? String(prev.weight) : 'Weight';
+  document.getElementById('in-weight').placeholder = prev ? String(prev.weight) : unit();   // "Weight" doesn't fit a narrow phone
 }
 function captureCurrent() {
   const e = readEntry();
   if (e.typed) {
     const p = workout.current.pending || newPending();
     if (p.max) workout.current.sets.forEach(s => s.max = false);
-    workout.current.sets.push({ reps: e.reps, weight: e.weight, type: p.type, max: p.max, extra: p.extra, grip: p.grip || null, tempo: p.tempo || null });
+    workout.current.sets.push({ reps: e.reps, weight: e.weight, type: p.type, max: p.max, extra: p.extra, grip: p.grip || null, tempo: p.tempo || null, brand: p.brand || null });
     workout.current.pending = newPending();
     document.getElementById('in-reps').value = '';
     document.getElementById('in-weight').value = '';
@@ -2470,8 +2496,7 @@ function openChipMenu(e, i, kind) {
       ...Object.entries(TEMPOS).map(([k, v]) => ({ v: k, label: v, on: s.tempo === k }))
     ];
   } else if (kind === 'grip') {
-    const exName = workout && workout.current ? workout.current.name : '';
-    const grips = gripsForExercise(exName);
+    const grips = gripsForExercise(exNameForKey(i));
     if (!grips) return;
     options = [
       { v: null, label: 'No grip selected', on: !s.grip },
@@ -2503,24 +2528,27 @@ function openChipMenu(e, i, kind) {
 
     const inp = document.createElement('input');
     inp.type = 'text';
-    inp.placeholder = 'Add new brand...';
-    inp.style.cssText = 'width:calc(100% - 12px);padding:8px 6px;background:#1a1a1f;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;font-size:12px;font-family:inherit;margin:6px';
+    inp.placeholder = 'Add new brand…';
+    inp.enterKeyHint = 'done';
+    inp.style.cssText = 'display:block;width:calc(100% - 16px);padding:9px 10px;background:#1a1a1f;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font:600 14px Montserrat,sans-serif;margin:4px 8px 8px';
     inp.onkeydown = ev => {
       ev.stopPropagation();
       if (ev.key === 'Enter' && inp.value.trim()) {
         const val = inp.value.trim();
         const s = store.settings;
-        if (!s.brands.some(b => b.toLowerCase() === val.toLowerCase())) {
+        s.brands = s.brands || [];
+        const existing = s.brands.find(b => b.toLowerCase() === val.toLowerCase());
+        if (!existing) {
           s.brands.push(val);
+          s.profileUpdatedAt = Date.now();   // otherwise the next cloud pull drops it
           store.settings = s;
         }
-        applyChip(i, kind, val);
+        applyChip(i, kind, existing || val);
       } else if (ev.key === 'Escape') {
         closeChipMenu();
       }
     };
     m.appendChild(inp);
-    setTimeout(() => inp.focus(), 50);
   }
 
   // Add custom input for grip
@@ -2532,22 +2560,21 @@ function openChipMenu(e, i, kind) {
 
     const inp = document.createElement('input');
     inp.type = 'text';
-    inp.placeholder = 'Add custom grip...';
-    inp.style.cssText = 'width:calc(100% - 12px);padding:8px 6px;background:#1a1a1f;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;font-size:12px;font-family:inherit;margin:6px';
+    inp.placeholder = 'Add custom grip…';
+    inp.enterKeyHint = 'done';
+    inp.style.cssText = 'display:block;width:calc(100% - 16px);padding:9px 10px;background:#1a1a1f;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font:600 14px Montserrat,sans-serif;margin:4px 8px 8px';
     inp.onkeydown = ev => {
       ev.stopPropagation();
       if (ev.key === 'Enter' && inp.value.trim()) {
         const val = inp.value.trim();
-        const exName = workout && workout.current ? workout.current.name : '';
         const gripKey = val.toLowerCase();
-        saveCustomGrip(exName, gripKey, val);
+        saveCustomGrip(exNameForKey(i), gripKey, val);
         applyChip(i, kind, gripKey);
       } else if (ev.key === 'Escape') {
         closeChipMenu();
       }
     };
     m.appendChild(inp);
-    setTimeout(() => inp.focus(), 50);
   }
 
   document.body.appendChild(m);
@@ -2642,6 +2669,7 @@ function pickExercise(name) {
 function finishPickExercise(name) {
   const input = document.getElementById('ex-name');
   input.value = name;
+  fitExName();
   document.getElementById('ex-clear').classList.add('show');
   document.getElementById('ac-list').classList.remove('open');
   // when picking a new exercise name, treat it as a fresh start: clear any in-progress sets from the previous exercise
@@ -2661,39 +2689,10 @@ function isMachineExercise(name) {
   const n = name.toLowerCase();
   return /machine/.test(n) || MACHINE_NATURE.some(m => n.includes(m.toLowerCase()));
 }
-// brands are appended as "Leg Press (Hammer Strength)" — one exercise per brand
-function hasBrandSuffix(name) { return /\([^)]+\)\s*$/.test(name); }
-
-let brandPickerFor = null;
-let brandPickerMode = 'log';   // 'log' = new set on log screen; 'edit' = renaming an exercise on review/edit
-function openBrandPicker(name, mode) {
-  brandPickerFor = name;
-  brandPickerMode = mode || 'log';
-  document.getElementById('brand-ex-name').textContent = name;
-  const brands = store.settings.brands || [];
-  document.getElementById('brand-options').innerHTML =
-    brands.map(b => `<button class="brand-opt" onclick="chooseBrand(this.dataset.b)" data-b="${escapeAttr(b)}">${escapeHtml(b)}</button>`).join('') +
-    `<button class="brand-opt none" onclick="chooseBrand('')">No brand</button>`;
-  document.getElementById('brand-modal').classList.add('open');
-}
-function chooseBrand(brand) {
-  const base = brandPickerFor, mode = brandPickerMode;
-  closeBrandPicker(true);
-  applyPickedExercise(mode, brand ? base + ' (' + brand + ')' : base);
-}
-function closeBrandPicker(silent) {
-  document.getElementById('brand-modal').classList.remove('open');
-  const base = brandPickerFor, mode = brandPickerMode;
-  brandPickerFor = null; brandPickerMode = 'log';
-  if (!silent && base) applyPickedExercise(mode, base); // dismissing = no brand
-}
-function applyPickedExercise(mode, name) {
-  if (mode === 'edit') commitEditExName(name);
-  else finishPickExercise(name);
-}
 function clearExName() {
   const input = document.getElementById('ex-name');
   input.value = '';
+  fitExName();
   workout.current.name = '';
   store.active = workout;
   document.getElementById('ex-clear').classList.remove('show');
@@ -2707,6 +2706,7 @@ function tagsString(s) {
   if (s.type === 'warmup') t.push('Warm up');
   if (s.max) t.push('Max Set');
   if (EXTRAS[s.extra]) t.push(EXTRAS[s.extra]);
+  if (s.brand) t.push(s.brand);
   if (s.grip) t.push(s.grip);
   if (s.tempo && TEMPOS[s.tempo]) t.push(TEMPOS[s.tempo]);
   return t.join(' · ');
@@ -2720,8 +2720,9 @@ function setChipHtml(s) {
   const tech = EXTRAS[s.extra] ? ` <span class="tech-tag">${EXTRAS[s.extra].toUpperCase()}</span>` : '';
   const grip = s.grip ? ` <span class="tech-tag">${escapeHtml(s.grip.toUpperCase())}</span>` : '';
   const tempo = s.tempo && TEMPOS[s.tempo] ? ` <span class="tech-tag">${TEMPOS[s.tempo].toUpperCase()}</span>` : '';
+  const brand = s.brand ? ` <span class="tech-tag">${escapeHtml(s.brand.toUpperCase())}</span>` : '';
   if (s.max) return `<div class="hist-chip max">${escapeHtml(String(s.weight))} × ${escapeHtml(String(s.reps))} ${FLAME}</div>`;
-  return `<div class="hist-chip">${escapeHtml(String(s.weight))} × ${escapeHtml(String(s.reps))}${tech}${grip}${tempo}</div>`;
+  return `<div class="hist-chip">${escapeHtml(String(s.weight))} × ${escapeHtml(String(s.reps))}${tech}${brand}${grip}${tempo}</div>`;
 }
 
 function openPerf() {
@@ -2786,8 +2787,8 @@ function renderSummary() {
 
   const bp = w.bodyParts || [];
   document.getElementById('summary-meta-chips').innerHTML = `
-    <button class="chip ${w.type ? (LIGHT_TYPES.includes(w.type) ? 'type-warmup' : 'type-working') : ''}" style="font-size:11px;padding:7px 12px;" onclick="openTypeMenu(event)">${w.type ? escapeHtml(w.type) : 'Select type'} ▾</button>
-    <button class="chip ${bp.length ? 'max-on' : ''}" style="font-size:11px;padding:7px 12px;" onclick="openBpModal()">${bp.length ? escapeHtml(bp.join(', ')) : 'Add body parts'} ▾</button>`;
+    <button class="chip ${w.type ? (LIGHT_TYPES.includes(w.type) ? 'type-warmup' : 'type-working') : ''}" onclick="openTypeMenu(event)"><span class="cv">${w.type ? escapeHtml(w.type) : 'Select type'}</span><span class="caret">▾</span></button>
+    <button class="chip ${bp.length ? 'max-on' : ''}" onclick="openBpModal()"><span class="cv">${bp.length ? escapeHtml(bp.join(', ')) : 'Add body parts'}</span><span class="caret">▾</span></button>`;
 
   const totalSets = w.exercises.reduce((n, ex) => n + ex.sets.length, 0);
   const volume = w.exercises.reduce((v, ex) =>
@@ -2902,11 +2903,6 @@ function pickEditExName(name) {
   chooseEditExercise(name);
 }
 function chooseEditExercise(name) {
-  // machine exercise with no brand yet → ask which brand (this is the "add the machine name" case)
-  if (isMachineExercise(name) && !hasBrandSuffix(name) && (store.settings.brands || []).length) {
-    openBrandPicker(name, 'edit');
-    return;
-  }
   commitEditExName(name);
 }
 function commitEditExName(name) {
@@ -3260,6 +3256,7 @@ function mergeRemote(remote) {
   const merged = Object.values(pick);
   merged.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
   const rescued = repairStrandedDrafts(merged);   // a device still on the old build can send one
+  merged.forEach(w => { if (consolidateBrandNames(w, s.brands || [])) w.editedAt = Date.now(); });
   store.history = merged.slice(0, 200);
   announceRecovered(rescued);
   s.deletedWorkouts = [...del].slice(-500);
@@ -3547,8 +3544,20 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   if (cb) cb();
 });
 
+// grow the name box to fit the text, so long names wrap instead of being cut off
+function fitExName() {
+  const el = document.getElementById('ex-name');
+  el.style.height = 'auto';
+  if (!el.offsetWidth) return;   // hidden screen: nothing to measure, keep the one-row height
+  el.style.height = el.scrollHeight + 'px';
+}
+window.addEventListener('resize', fitExName);
+if (document.fonts) document.fonts.ready.then(fitExName);
 const exNameInput = document.getElementById('ex-name');
 exNameInput.addEventListener('input', e => {
+  // it's a textarea only so it can wrap — a pasted line break is still just a space
+  if (/\n/.test(e.target.value)) e.target.value = e.target.value.replace(/\s*\n+\s*/g, ' ');
+  fitExName();
   renderAutocomplete(e.target.value);
   document.getElementById('ex-clear').classList.toggle('show', !!e.target.value);
   if (workout && workout.current) { workout.current.name = e.target.value; }
