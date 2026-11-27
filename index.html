@@ -237,7 +237,7 @@
   .lift-lock-inner { margin: auto; width: 100%; max-width: 340px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .lift-lock-icon { font-size: 46px; }
   .lift-lock-title { font-size: 22px; font-weight: 800; }
-  .lift-lock-ex { font-size: 14px; font-weight: 700; color: var(--pink); min-height: 18px; }
+  .lift-lock-ex { font-size: 14px; font-weight: 700; color: var(--pink); min-height: 18px; white-space: pre-line; line-height: 1.5; }
   .lift-lock-sub { font-size: 13px; font-weight: 500; color: var(--dimmer); line-height: 1.5; margin-bottom: 14px; }
   .lift-unlock {
     position: relative; overflow: hidden; width: 100%; height: 64px; border-radius: 16px;
@@ -415,13 +415,58 @@
   .chip.tempo-on { background: rgba(230,124,115,.12); border-color: rgba(230,124,115,.4); color: #E67C73; }
   .chip.type-working, .chip.max-on { background: var(--pink-soft); border-color: var(--pink-line); color: var(--pink); }
   .chip.type-warmup { background: rgba(255,180,84,.12); border-color: rgba(255,180,84,.4); color: var(--amber); }
-  #ex-notes {
+  .ex-notes {
     width: 100%; background: var(--deep); border: 1px solid rgba(255,255,255,.1);
     border-radius: 12px; padding: 12px 14px; font: 500 14px Montserrat, sans-serif;
     color: var(--text); min-height: 52px; resize: none; outline: none;
   }
-  #ex-notes:focus { border-color: var(--pink); }
-  #ex-notes::placeholder { color: var(--dimmer); }
+  .ex-notes:focus { border-color: var(--pink); }
+  .ex-notes::placeholder { color: var(--dimmer); }
+  .set-rows { display: flex; flex-direction: column; gap: 8px; }
+  .set-rows:empty { display: none; }
+  /* ---------- supersets ---------- */
+  .ex-count-wrap { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .ss-add {
+    height: 30px; padding: 0 12px; border-radius: 99px; border: 1px dashed var(--pink-line);
+    background: var(--pink-soft); color: var(--pink); font: 800 11px Montserrat, sans-serif;
+    white-space: nowrap; cursor: pointer;
+  }
+  .ss-add:active { background: rgba(247,37,133,.3); }
+  .ss-add[hidden] { display: none; }
+  .ex-card.ss-on { border-color: var(--pink-line); }
+  .ss-head { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+  .ss-head[hidden] { display: none; }
+  .ss-letter {
+    width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0;
+    background: var(--pink); color: #fff; font-size: 12px; font-weight: 800;
+  }
+  .ss-title { font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .ss-remove {
+    margin-left: auto; height: 32px; padding: 0 12px; border-radius: 8px; flex-shrink: 0;
+    background: none; border: 1px solid rgba(229,83,75,.35); color: #ff8a84;
+    font: 700 11.5px Montserrat, sans-serif; cursor: pointer; white-space: nowrap;
+  }
+  .ss-remove:active { background: rgba(229,83,75,.2); }
+  #ss-partners:empty { display: none; }
+  #ss-partners { display: flex; flex-direction: column; gap: 12px; }
+  .ss-block { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px dashed var(--pink-line); }
+  .exd-chip .ss-mark {
+    flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: .06em; color: var(--pink);
+    background: var(--pink-soft); border-radius: 99px; padding: 2px 6px;
+  }
+  /* review screen: a superset's cards sit together under one header */
+  .ss-group { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px dashed var(--pink-line); border-radius: 20px; }
+  .ss-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; }
+  .ss-group-head .t { font-size: 10px; font-weight: 800; letter-spacing: .12em; color: var(--pink); }
+  .ss-unlink {
+    height: 32px; padding: 0 12px; border-radius: 8px; background: none; border: 1px solid var(--border2);
+    color: var(--dim); font: 700 11.5px Montserrat, sans-serif; cursor: pointer; white-space: nowrap;
+  }
+  .ss-unlink:active { background: var(--surface); color: var(--text); }
+  /* history: superset exercises bracketed by a pink rule */
+  .hist-ss { margin-top: 12px; padding-left: 10px; border-left: 2px solid var(--pink-line); }
+  .hist-ss .ss-label { font-size: 9.5px; font-weight: 800; letter-spacing: .12em; color: var(--pink); }
+  .hist-ss .hist-ex { margin-top: 6px; }
   .perf-link {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     padding: 8px 0; font-size: 14px; font-weight: 600; color: var(--pink); cursor: pointer;
@@ -725,35 +770,43 @@
 
     <div class="reco-note" id="reco-note" style="display:none;"></div>
 
-    <div class="ex-card">
+    <div class="ex-card" id="ex-card">
       <div class="ex-card-top">
-        <div class="ex-count" id="ex-count">EXERCISE 1</div>
+        <div class="ex-count-wrap">
+          <div class="ex-count" id="ex-count">EXERCISE 1</div>
+          <button class="ss-add" id="ss-add" onclick="addPartner()" aria-label="Add a superset exercise">+ Superset</button>
+        </div>
         <div class="ex-prev" id="ex-prev"></div>
       </div>
       <div class="ex-done" id="ex-done" style="display:none;"></div>
       <div class="plan-next" id="plan-next" style="display:none;"></div>
+      <!-- slot 0 is the exercise being logged; superset partners (slots 1+) render into #ss-partners -->
+      <div class="ss-head" id="ss-head-0" hidden><span class="ss-letter">A</span><span class="ss-title">Superset</span></div>
       <div class="ex-name-wrap">
         <div class="ex-name-field">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
-          <textarea id="ex-name" rows="1" placeholder="Type an exercise…" autocomplete="off" autocapitalize="words" enterkeyhint="done" spellcheck="false"></textarea>
-          <button class="ex-clear" id="ex-clear" onclick="clearExName()" aria-label="Clear exercise name">✕</button>
+          <textarea id="ex-name" rows="1" placeholder="Type an exercise…" autocomplete="off" autocapitalize="words" enterkeyhint="done" spellcheck="false"
+            oninput="onExNameInput(0)" onfocus="renderAutocomplete(this.value, 0)" onkeydown="onExNameKey(event, 0)"></textarea>
+          <button class="ex-clear" id="ex-clear" onclick="clearExName(0)" aria-label="Clear exercise name">✕</button>
         </div>
         <div class="ac-list" id="ac-list"></div>
       </div>
 
-      <div id="set-rows" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div class="set-rows" id="set-rows"></div>
 
       <div class="set-row entry" id="entry-block">
         <div class="top">
           <div class="set-num muted" id="entry-num">1</div>
           <input type="text" inputmode="numeric" id="in-reps" placeholder="Reps" aria-label="Reps">
-          <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight" aria-label="Weight">
-          <button class="next-set-btn" onclick="logSet()">Next set →</button>
+          <input type="text" inputmode="decimal" id="in-weight" placeholder="Weight" aria-label="Weight" onkeydown="if(event.key==='Enter')logSet(0)">
+          <button class="next-set-btn" onclick="logSet(0)">Next set →</button>
         </div>
         <div class="chip-row" id="pending-chips"></div>
       </div>
 
-      <textarea id="ex-notes" placeholder="Notes…"></textarea>
+      <textarea class="ex-notes" id="ex-notes" placeholder="Notes…" oninput="onNotesInput(0, this.value)"></textarea>
+
+      <div id="ss-partners"></div>
     </div>
 
     <button class="lift-btn" onclick="startLifting()">🔒 Lifting — lock screen</button>
@@ -1135,14 +1188,15 @@ function repairStrandedDrafts(hist) {
     if (!w) return;
     const draft = w.current;
     delete w.current;                       // a record has no in-progress exercise
-    if (!draft || !Array.isArray(draft.sets) || !draft.sets.length) return;
+    if (!draft) return;
+    const drafts = [draft, ...(Array.isArray(draft.partners) ? draft.partners : [])]
+      .filter(d => d && Array.isArray(d.sets) && d.sets.length);
+    if (!drafts.length) return;
     w.exercises = w.exercises || [];
-    w.exercises.push({
-      name: String(draft.name || '').trim() || 'Unnamed exercise',
-      notes: draft.notes || '',
-      sets: draft.sets
+    drafts.forEach(d => {
+      w.exercises.push({ name: String(d.name || '').trim() || 'Unnamed exercise', notes: d.notes || '', sets: d.sets });
+      n += d.sets.length;
     });
-    n += draft.sets.length;
     w.editedAt = Date.now();                // the repaired copy must win the next merge
   });
   return n;
@@ -1168,7 +1222,7 @@ function consolidateBrandNames(w, brands) {
   if (!w) return false;
   let changed = false;
   (w.exercises || []).forEach(ex => { if (splitBrandFromName(ex, brands)) changed = true; });
-  if (w.current && splitBrandFromName(w.current, brands)) changed = true;
+  if (w.current) [w.current, ...(w.current.partners || [])].forEach(ex => { if (splitBrandFromName(ex, brands)) changed = true; });
   return changed;
 }
 
@@ -1206,7 +1260,7 @@ let recoveredSets = 0;   // rescued on load, reported once the first screen is u
   if (act) {
     consolidateBrandNames(act, brands);
     (act.exercises || []).forEach(ex => ex.sets.forEach(normSet));
-    if (act.current) act.current.sets.forEach(normSet);
+    if (act.current) [act.current, ...(act.current.partners || [])].forEach(ex => ex.sets.forEach(normSet));
     store.active = act;
   }
 })();
@@ -1594,13 +1648,13 @@ function closeRecent() { document.getElementById('recent-sheet').classList.remov
 // so we never clobber an exercise that already has sets logged against it
 function pickRecentExercise(name) {
   if (!name) return;
-  if (workout && workout.current && workout.current.sets.length) {
+  const k = slotList().findIndex(ex => !ex.sets.length);   // first exercise slot with nothing logged yet
+  if (k === -1) {
     toast('Tap "Next exercise" first');
     return;
   }
   closeRecent();
-  // names from history are already brand-suffixed, so skip the brand picker
-  finishPickExercise(name);
+  finishPickExercise(name, k);
   persistDraft();
 }
 
@@ -1626,12 +1680,11 @@ document.addEventListener('visibilitychange', () => {
 function startLifting() {
   liftLockActive = true;
   // show what you're on, so a glance through the lock still tells you where you are
-  let label = '';
-  if (workout) {
-    const cur = (workout.current && workout.current.name) || '';
-    const setNo = (workout.current && workout.current.sets ? workout.current.sets.length + 1 : 1);
-    label = cur ? cur + ' · set ' + setNo : '';
-  }
+  const label = slotList().map((ex, k) => {
+    const field = sEl('ex-name', k);
+    const name = (field && field.value.trim()) || ex.name;
+    return name ? name + ' · set ' + (ex.sets.length + 1) : '';
+  }).filter(Boolean).join('\n');
   document.getElementById('lift-lock-ex').textContent = label;
   document.getElementById('lift-lock').classList.add('open');
   acquireWakeLock();
@@ -1679,7 +1732,7 @@ function startWorkout() {
   if (active && active.exercises) {
     workout = active;
     if (!workout.current) workout.current = newCurrent();
-    if (!workout.current.pending) workout.current.pending = newPending();
+    slotList().forEach(ex => { if (!ex.pending) ex.pending = newPending(); });
     if (!workout.bodyParts) workout.bodyParts = [];
     openLogScreen();
     return;
@@ -1691,6 +1744,147 @@ function startWorkout() {
 }
 function newCurrent() { return { name: '', notes: '', sets: [], pending: newPending() }; }
 function newPending() { return { type: 'working', max: false, extra: null, grip: null, brand: null, tempo: null }; }
+function setFromPending(reps, weight, p) {
+  return { reps, weight, type: p.type, max: p.max, extra: p.extra, grip: p.grip || null, tempo: p.tempo || null, brand: p.brand || null };
+}
+
+/* ================= supersets ================= */
+// The card logs one or more exercises at once. Slot 0 is workout.current itself; slots
+// 1+ are its superset partners (workout.current.partners), each with its own name,
+// sets and entry row. Once filed, the exercises sit side by side in workout.exercises
+// sharing a `superset` id, so history, stats and exports still see plain exercises.
+const MAX_SLOTS = 4;
+const SLOT_LETTERS = 'ABCD';
+let focusSlot = 0;
+function slotList() { return workout && workout.current ? [workout.current, ...(workout.current.partners || [])] : []; }
+function slotEx(k) { return slotList()[k]; }
+function isSuperset() { return slotList().length > 1; }
+function sEl(id, k) { return document.getElementById(k ? id + '-' + k : id); }
+function pendingKey(k) { return k ? 'q' + k : 'pending'; }
+function setKey(k, i) { return k ? 's' + k + '_' + i : 'c' + i; }
+// per-workout superset numbers for display: exercise index -> 1, 2, … (0 = not in one)
+function supersetNumbers(list) {
+  const no = list.map(() => 0);
+  supersetRuns(list).filter(r => r.id).forEach((r, n) => r.idx.forEach(i => { no[i] = n + 1; }));
+  return no;
+}
+function newSupersetId() { return 'ss' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+
+// filed exercises grouped into runs: a superset's members share an id and sit together.
+// A lone member (its partner was deleted) is shown as a plain exercise.
+function supersetRuns(list) {
+  const runs = [];
+  list.forEach((ex, i) => {
+    const last = runs[runs.length - 1];
+    if (ex.superset && last && last.id === ex.superset) last.idx.push(i);
+    else runs.push({ id: ex.superset || null, idx: [i] });
+  });
+  runs.forEach(r => { if (r.idx.length < 2) r.id = null; });
+  return runs;
+}
+
+const SEARCH_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>';
+function partnerBlockHtml(k) {
+  return `<div class="ss-block" data-slot="${k}">
+    <div class="ss-head">
+      <span class="ss-letter">${SLOT_LETTERS[k]}</span><span class="ss-title">Superset</span>
+      <button class="ss-remove" onclick="removePartner(${k})">✕ Remove</button>
+    </div>
+    <div class="ex-name-wrap">
+      <div class="ex-name-field">
+        ${SEARCH_ICON}
+        <textarea id="ex-name-${k}" rows="1" placeholder="Superset with…" autocomplete="off" autocapitalize="words" enterkeyhint="done" spellcheck="false"
+          oninput="onExNameInput(${k})" onfocus="renderAutocomplete(this.value, ${k})" onkeydown="onExNameKey(event, ${k})"></textarea>
+        <button class="ex-clear" id="ex-clear-${k}" onclick="clearExName(${k})" aria-label="Clear exercise name">✕</button>
+      </div>
+      <div class="ac-list" id="ac-list-${k}"></div>
+    </div>
+    <div class="set-rows" id="set-rows-${k}"></div>
+    <div class="set-row entry">
+      <div class="top">
+        <div class="set-num muted" id="entry-num-${k}">1</div>
+        <input type="text" inputmode="numeric" id="in-reps-${k}" placeholder="Reps" aria-label="Reps">
+        <input type="text" inputmode="decimal" id="in-weight-${k}" placeholder="Weight" aria-label="Weight" onkeydown="if(event.key==='Enter')logSet(${k})">
+        <button class="next-set-btn" onclick="logSet(${k})">Next set →</button>
+      </div>
+      <div class="chip-row" id="pending-chips-${k}"></div>
+    </div>
+    <textarea class="ex-notes" id="ex-notes-${k}" placeholder="Notes…" oninput="onNotesInput(${k}, this.value)"></textarea>
+  </div>`;
+}
+// what's typed (not yet logged) in each slot's entry row — survives a rebuild of the blocks
+function typedEntries() {
+  return slotList().map((_, k) => {
+    const r = sEl('in-reps', k), w = sEl('in-weight', k);
+    return r && w ? [r.value, w.value] : ['', ''];
+  });
+}
+// (re)build the partner blocks; slot 0 is static markup and is never rebuilt
+function renderPartnerBlocks(typed) {
+  const box = document.getElementById('ss-partners');
+  if (!box || !workout || !workout.current) return;
+  typed = typed || typedEntries();
+  const parts = workout.current.partners || [];
+  box.innerHTML = parts.map((_, j) => partnerBlockHtml(j + 1)).join('');
+  parts.forEach((p, j) => {
+    const k = j + 1;
+    if (!p.pending) p.pending = newPending();
+    sEl('ex-name', k).value = p.name || '';
+    sEl('ex-notes', k).value = p.notes || '';
+    sEl('ex-clear', k).classList.toggle('show', !!p.name);
+    const t = typed[k] || ['', ''];
+    sEl('in-reps', k).value = t[0];
+    sEl('in-weight', k).value = t[1];
+    fitExName(k);
+  });
+  const on = isSuperset();
+  document.getElementById('ex-card').classList.toggle('ss-on', on);
+  document.getElementById('ss-head-0').hidden = !on;
+  const add = document.getElementById('ss-add');
+  add.hidden = slotList().length >= MAX_SLOTS;
+  add.textContent = on ? '+ Add' : '+ Superset';
+  add.setAttribute('aria-label', on ? 'Add another exercise to this superset' : 'Add a superset exercise');
+  renderSupersetCount();
+}
+function addPartner() {
+  if (!workout || !workout.current) return;
+  if (slotList().length >= MAX_SLOTS) { toast('A superset can hold ' + MAX_SLOTS + ' exercises'); return; }
+  const typed = typedEntries();
+  (workout.current.partners = workout.current.partners || []).push(newCurrent());
+  persistDraft();
+  renderPartnerBlocks(typed);
+  renderSetRows();
+  const k = slotList().length - 1;
+  const el = sEl('ex-name', k);
+  el.focus();   // still inside the tap, so the phone keyboard opens
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+// undo an accidental superset: an empty exercise goes at once, one with sets asks first
+function removePartner(k) {
+  const ex = slotEx(k);
+  if (!k || !ex) return;
+  const typed = typedEntries();
+  const drop = () => {
+    typed.splice(k, 1);
+    workout.current.partners.splice(k - 1, 1);
+    if (!workout.current.partners.length) delete workout.current.partners;
+    if (editingKey && /^[qs]/.test(editingKey)) { editingKey = null; setEditDraft = null; }
+    focusSlot = 0;
+    persistDraft();
+    renderPartnerBlocks(typed);
+    renderSetRows();
+  };
+  const n = ex.sets.length;
+  if (!n && !typed[k].join('').trim()) { drop(); return; }
+  uiConfirm(`Remove ${ex.name ? '“' + ex.name + '”' : 'this exercise'}${n ? ' and its ' + n + (n === 1 ? ' set' : ' sets') : ''} from the superset?`, 'Remove', drop);
+}
+// "EXERCISE 3" counts a superset as one step
+function renderSupersetCount() {
+  const back = workout.currentIdx != null;
+  const before = back ? workout.exercises.slice(0, workout.currentIdx) : workout.exercises;
+  const n = supersetRuns(before).length + 1;
+  document.getElementById('ex-count').textContent = (back ? 'EDITING ' : '') + (isSuperset() ? 'SUPERSET ' : 'EXERCISE ') + n;
+}
 
 /* ================= load a workout plan (paste JSON from Claude, or shorthand) ================= */
 // longest aliases first so "rest pause" wins before "rest"
@@ -1873,8 +2067,9 @@ function loadPlanNow() {
   const r = parsePlanInput(document.getElementById('load-input').value);
   if (!r.ok) { toast(r.error); previewPlan(); return; }
   const go = () => { closeLoadWorkout(); applyPlan(r.plan); };
-  if (store.active && store.active.exercises &&
-      (store.active.exercises.length || (store.active.current && store.active.current.sets.length))) {
+  const cur = store.active && store.active.current;
+  const curHasSets = cur && [cur, ...(cur.partners || [])].some(ex => ex.sets && ex.sets.length);
+  if (store.active && store.active.exercises && (store.active.exercises.length || curHasSets)) {
     uiConfirm('Replace the in-progress workout with this plan?', 'Replace', go);
   } else go();
 }
@@ -1913,9 +2108,14 @@ function renderDoneExercises() {
   const list = (workout && workout.exercises) || [];
   if (!list.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'flex';
-  el.innerHTML = list.map((ex, i) =>
-    `<button class="exd-chip" onclick="goToExercise(${i})" title="Go back to ${escapeAttr(ex.name)}">` +
-    `<span class="n">${escapeHtml(ex.name)}</span><span class="c">${ex.sets.length}</span></button>`).join('');
+  el.innerHTML = supersetRuns(list).map(r => {
+    const exs = r.idx.map(i => list[i]);
+    const names = exs.map(ex => ex.name).join(' + ');
+    const sets = exs.reduce((n, ex) => n + ex.sets.length, 0);
+    return `<button class="exd-chip" onclick="goToExercise(${r.idx[0]})" title="Go back to ${escapeAttr(names)}">` +
+      (r.id ? '<span class="ss-mark">SS</span>' : '') +
+      `<span class="n">${escapeHtml(names)}</span><span class="c">${sets}</span></button>`;
+  }).join('');
 }
 function renderPlanNext() {
   const el = document.getElementById('plan-next');
@@ -2091,22 +2291,24 @@ function changeSummaryDate(iso) {
 
 function renderExerciseCard() {
   const back = workout.currentIdx != null;
-  const n = back ? workout.currentIdx + 1 : workout.exercises.length + 1;
-  document.getElementById('ex-count').textContent = (back ? 'EDITING EXERCISE ' : 'EXERCISE ') + n;
-  const prev = workout.exercises[workout.exercises.length - 1];
-  document.getElementById('ex-prev').textContent = back ? '↩ went back' : (prev ? prev.name + ' ✓' : '');
+  const runs = supersetRuns(workout.exercises);
+  const prev = runs[runs.length - 1];
+  document.getElementById('ex-prev').textContent = back ? '↩ went back'
+    : (prev ? prev.idx.map(i => workout.exercises[i].name).join(' + ') + ' ✓' : '');
   const btn = document.getElementById('next-ex-btn');
   if (btn) btn.textContent = back ? 'Save & continue →' : 'Next exercise →';
   renderDoneExercises();
   const nameInput = document.getElementById('ex-name');
   nameInput.value = workout.current.name || '';
-  fitExName();
   document.getElementById('ex-clear').classList.toggle('show', !!nameInput.value);
   document.getElementById('ex-notes').value = workout.current.notes || '';
   document.getElementById('in-reps').value = '';
   document.getElementById('in-weight').value = '';
   document.getElementById('ac-list').classList.remove('open');
   if (!workout.current.pending) workout.current.pending = newPending();
+  focusSlot = 0;
+  renderPartnerBlocks(slotList().map(() => ['', '']));
+  fitExName();
   renderSetRows();
   renderPlanNext();
 }
@@ -2115,6 +2317,8 @@ function renderExerciseCard() {
 function exNameForKey(key) {
   const m = /^x(\d+)_/.exec(key || '');
   if (m) { const ex = workout && workout.exercises[+m[1]]; return ex ? ex.name : ''; }
+  const s = /^[qs](\d+)/.exec(key || '');
+  if (s) { const ex = slotEx(+s[1]); return ex ? ex.name : ''; }
   return workout && workout.current ? workout.current.name : '';
 }
 function gripLabel(s, exName) {
@@ -2147,8 +2351,13 @@ function setTagsHtml(s, exName) {
 }
 
 // set addressing: 'pending' | 'c<i>' (current exercise) | 'x<e>_<i>' (completed exercise on review)
+// | 'q<k>' / 's<k>_<i>' (pending row / set i of superset partner slot k)
 function setCtx(key) {
   if (key === 'pending') return { set: workout.current.pending, sets: workout.current.sets, pending: true };
+  const q = /^q(\d+)$/.exec(key);
+  if (q) { const ex = slotEx(+q[1]); return ex ? { set: ex.pending, sets: ex.sets, pending: true } : null; }
+  const p = /^s(\d+)_(\d+)$/.exec(key);
+  if (p) { const ex = slotEx(+p[1]); const set = ex && ex.sets[+p[2]]; return set ? { set, sets: ex.sets, setIdx: +p[2] } : null; }
   if (key[0] === 'c') {
     if (!workout || !workout.current) return null;
     const set = workout.current.sets[+key.slice(1)];
@@ -2230,42 +2439,51 @@ function refreshEditors() {
 
 function renderSetRows() {
   if (!workout || !workout.current) return;
-  const el = document.getElementById('set-rows');
-  el.innerHTML = workout.current.sets.map((s, i) => setRowHtml(s, 'c' + i, i + 1)).join('');
-  document.getElementById('entry-num').textContent = workout.current.sets.length + 1;
-  document.getElementById('pending-chips').innerHTML = chipButtons(workout.current.pending, 'pending') +
-    `<button class="entry-clear" onclick="clearEntry()" title="Clear this set">Clear</button>`;
-  renderEntryPlaceholders();
+  const ss = isSuperset();
+  slotList().forEach((ex, k) => {
+    const rows = sEl('set-rows', k);
+    if (!rows) return;
+    if (!ex.pending) ex.pending = newPending();
+    // in a superset, sets read A1, B1, A2… so it's clear which exercise each belongs to
+    const label = i => (ss ? SLOT_LETTERS[k] : '') + (i + 1);
+    rows.innerHTML = ex.sets.map((s, i) => setRowHtml(s, setKey(k, i), label(i))).join('');
+    sEl('entry-num', k).textContent = label(ex.sets.length);
+    sEl('pending-chips', k).innerHTML = chipButtons(ex.pending, pendingKey(k)) +
+      `<button class="entry-clear" onclick="clearEntry(${k})" title="Clear this set">Clear</button>`;
+    renderEntryPlaceholders(k);
+  });
 }
 
-function logSet() {
-  const name = document.getElementById('ex-name').value.trim();
-  if (!name) { toast('Name the exercise first'); document.getElementById('ex-name').focus(); return; }
-  workout.current.name = name;
-  const { reps, weight } = readEntry();
+function logSet(k = 0) {
+  const ex = slotEx(k);
+  const nameEl = sEl('ex-name', k);
+  const name = nameEl.value.trim();
+  if (!name) { toast('Name the exercise first'); nameEl.focus(); return; }
+  ex.name = name;
+  const { reps, weight } = readEntry(k);
   if (!reps && !weight) { toast('Enter reps and weight'); return; }
-  const p = workout.current.pending;
-  if (p.max) workout.current.sets.forEach(s => s.max = false);
-  workout.current.sets.push({ reps, weight, type: p.type, max: p.max, extra: p.extra, grip: p.grip || null, tempo: p.tempo || null, brand: p.brand || null });
-  workout.current.pending = newPending();
-  workout.current.notes = document.getElementById('ex-notes').value.trim();
+  const p = ex.pending || newPending();
+  if (p.max) ex.sets.forEach(s => s.max = false);
+  ex.sets.push(setFromPending(reps, weight, p));
+  ex.pending = newPending();
+  ex.notes = sEl('ex-notes', k).value.trim();
   store.active = workout;
   // the row goes back to empty — renderSetRows() re-offers these numbers as the
   // placeholder, so the next set is still one tap away without looking pending
-  document.getElementById('in-reps').value = '';
-  document.getElementById('in-weight').value = '';
+  sEl('in-reps', k).value = '';
+  sEl('in-weight', k).value = '';
   renderSetRows();
 }
 
 // clear the active entry row (the in-progress set) — for when "Next set" prefilled
 // a set you didn't want, or you mistyped and want to start the entry fresh
-function clearEntry() {
-  document.getElementById('in-reps').value = '';
-  document.getElementById('in-weight').value = '';
-  workout.current.pending = newPending();
+function clearEntry(k = 0) {
+  sEl('in-reps', k).value = '';
+  sEl('in-weight', k).value = '';
+  slotEx(k).pending = newPending();
   persistDraft();
   renderSetRows();
-  const el = document.getElementById('in-reps'); if (el) el.focus();
+  sEl('in-reps', k).focus();
 }
 
 function askDeleteSet(key) {
@@ -2290,10 +2508,12 @@ function askDeleteSet(key) {
 // a phantom one from either. An empty field still falls back to the previous set,
 // which is what the placeholder is offering — so tapping Next set on an untouched
 // row repeats the last set, same as before.
-function readEntry() {
-  const prev = workout.current.sets[workout.current.sets.length - 1];
-  const reps = document.getElementById('in-reps').value.trim();
-  const weight = document.getElementById('in-weight').value.trim();
+function readEntry(k = 0) {
+  const ex = slotEx(k);
+  const prev = ex.sets[ex.sets.length - 1];
+  const rEl = sEl('in-reps', k), wEl = sEl('in-weight', k);
+  const reps = rEl ? rEl.value.trim() : '';
+  const weight = wEl ? wEl.value.trim() : '';
   return {
     typed: !!(reps || weight),
     reps: reps || (prev ? String(prev.reps) : ''),
@@ -2301,23 +2521,28 @@ function readEntry() {
   };
 }
 // Offer the previous set as a hint the row can be tapped straight through.
-function renderEntryPlaceholders() {
-  const prev = workout.current.sets[workout.current.sets.length - 1];
-  document.getElementById('in-reps').placeholder = prev ? String(prev.reps) : 'Reps';
-  document.getElementById('in-weight').placeholder = prev ? String(prev.weight) : unit();   // "Weight" doesn't fit a narrow phone
+function renderEntryPlaceholders(k = 0) {
+  const ex = slotEx(k);
+  const prev = ex.sets[ex.sets.length - 1];
+  sEl('in-reps', k).placeholder = prev ? String(prev.reps) : 'Reps';
+  sEl('in-weight', k).placeholder = prev ? String(prev.weight) : unit();   // "Weight" doesn't fit a narrow phone
 }
+// commit every slot's typed-but-unlogged entry row, and sync names/notes from the fields
 function captureCurrent() {
-  const e = readEntry();
-  if (e.typed) {
-    const p = workout.current.pending || newPending();
-    if (p.max) workout.current.sets.forEach(s => s.max = false);
-    workout.current.sets.push({ reps: e.reps, weight: e.weight, type: p.type, max: p.max, extra: p.extra, grip: p.grip || null, tempo: p.tempo || null, brand: p.brand || null });
-    workout.current.pending = newPending();
-    document.getElementById('in-reps').value = '';
-    document.getElementById('in-weight').value = '';
-  }
-  workout.current.name = document.getElementById('ex-name').value.trim();
-  workout.current.notes = document.getElementById('ex-notes').value.trim();
+  slotList().forEach((ex, k) => {
+    const e = readEntry(k);
+    if (e.typed) {
+      const p = ex.pending || newPending();
+      if (p.max) ex.sets.forEach(s => s.max = false);
+      ex.sets.push(setFromPending(e.reps, e.weight, p));
+      ex.pending = newPending();
+      sEl('in-reps', k).value = '';
+      sEl('in-weight', k).value = '';
+    }
+    const nameEl = sEl('ex-name', k), notesEl = sEl('ex-notes', k);
+    if (nameEl) ex.name = nameEl.value.trim();
+    if (notesEl) ex.notes = notesEl.value.trim();
+  });
 }
 
 // commitCurrentIntoList() drops an exercise that has no name — right for an empty
@@ -2327,47 +2552,66 @@ function captureCurrent() {
 // with no warning and the draft is gone the moment the workout is recorded.
 // Assumes captureCurrent() has already run, so current.name matches the field.
 function blockOnUnnamedSets() {
-  if (!workout || !workout.current || !workout.current.sets.length || workout.current.name) return false;
-  const n = workout.current.sets.length;
+  if (!workout || !workout.current) return false;
+  const k = slotList().findIndex(ex => ex.sets.length && !ex.name);
+  if (k === -1) return false;
+  const n = slotEx(k).sets.length;
   toast('Name this exercise — its ' + n + (n === 1 ? ' set isn’t' : ' sets aren’t') + ' saved yet');
   renderSetRows();
-  const el = document.getElementById('ex-name');
+  const el = sEl('ex-name', k);
   if (el) el.focus();
   return true;
 }
 
-// File the exercise being logged back into workout.exercises. When it came from
-// going *back* to an earlier exercise (workout.currentIdx), it returns to its
-// original position instead of being appended, so the order never scrambles.
+// File the exercise(s) being logged back into workout.exercises — two or more become a
+// superset sharing one id. When they came from going *back* to an earlier exercise
+// (workout.currentIdx), they return to their original position instead of being
+// appended, so the order never scrambles. A slot with no name or no sets is dropped.
 function commitCurrentIntoList(alreadyCaptured) {
   if (!alreadyCaptured) captureCurrent();
-  const cur = workout.current;
-  if (!cur.name || !cur.sets.length) return false;
-  const entry = { name: cur.name, notes: cur.notes, sets: cur.sets };
+  const filed = slotList().filter(ex => ex.name && ex.sets.length)
+    .map(ex => ({ name: ex.name, notes: ex.notes, sets: ex.sets }));
+  if (!filed.length) return false;
+  if (filed.length > 1) {
+    const id = workout.current.superset || newSupersetId();   // keep the id when re-filing an edited superset
+    filed.forEach(ex => { ex.superset = id; });
+  }
   const at = workout.currentIdx;
-  if (at != null && at >= 0 && at <= workout.exercises.length) workout.exercises.splice(at, 0, entry);
-  else workout.exercises.push(entry);
+  if (at != null && at >= 0 && at <= workout.exercises.length) workout.exercises.splice(at, 0, ...filed);
+  else workout.exercises.push(...filed);
   workout.currentIdx = null;
   workout.current = newCurrent();
   return true;
 }
 function nextExercise() {
   captureCurrent();                      // commitCurrentIntoList() must not capture again
-  const cur = workout.current;
-  if (!cur.name || !cur.sets.length) {
-    toast(cur.name ? 'Log at least one set first' : 'Name the exercise first');
+  if (blockOnUnnamedSets()) return;
+  const ready = slotList().filter(ex => ex.name && ex.sets.length);
+  if (!ready.length) {
+    toast(workout.current.name ? 'Log at least one set first' : 'Name the exercise first');
     renderSetRows();
     return;
   }
-  const name = cur.name;
+  const label = ready.map(ex => ex.name).join(' + ');
   commitCurrentIntoList(true);
   const fromPlan = loadNextPlanned();      // a loaded plan feeds the next exercise automatically
   store.active = workout;
   renderExerciseCard();
-  toast(name + ' saved ✓');
+  toast(label + ' saved ✓');
   if (!fromPlan) setTimeout(() => document.getElementById('ex-name').focus(), 60);
 }
-// jump back to an exercise already logged in this workout to fix or add sets
+// the run of exercises sharing list[idx]'s superset id (just [idx, 1] for a plain one)
+function supersetRange(list, idx) {
+  const id = list[idx] && list[idx].superset;
+  let s = idx, e = idx;
+  if (id) {
+    while (s > 0 && list[s - 1].superset === id) s--;
+    while (e < list.length - 1 && list[e + 1].superset === id) e++;
+  }
+  return [s, e - s + 1];
+}
+// jump back to an exercise already logged in this workout to fix or add sets.
+// A superset comes back whole, so its exercises are edited together again.
 function goToExercise(i) {
   if (!workout) return;
   const target = workout.exercises[i];
@@ -2378,12 +2622,18 @@ function goToExercise(i) {
   commitCurrentIntoList(true);             // park whatever is open (may shift indices)
   const idx = workout.exercises.indexOf(target);   // re-find by identity, not index
   if (idx === -1) return;
-  const ex = workout.exercises.splice(idx, 1)[0];
-  workout.currentIdx = idx;
-  workout.current = { name: ex.name, notes: ex.notes || '', sets: ex.sets, pending: newPending() };
+  const [start, len] = supersetRange(workout.exercises, idx);
+  const group = workout.exercises.splice(start, len);
+  const asSlot = ex => ({ name: ex.name, notes: ex.notes || '', sets: ex.sets, pending: newPending() });
+  workout.currentIdx = start;
+  workout.current = asSlot(group[0]);
+  if (group.length > 1) {
+    workout.current.partners = group.slice(1).map(asSlot);
+    workout.current.superset = group[0].superset;
+  }
   store.active = workout;
   renderExerciseCard();
-  toast('Back on ' + ex.name);
+  toast('Back on ' + group.map(ex => ex.name).join(' + '));
   setTimeout(() => { const el = document.getElementById('in-reps'); if (el) el.focus(); }, 60);
 }
 
@@ -2420,8 +2670,8 @@ function recordWorkout(force) {
   // Last-ditch net: completeWorkout() already files the in-progress exercise away,
   // but a record must never carry one — an unfiled draft is invisible everywhere,
   // so its sets would be lost the moment the workout is written to history.
-  if (workout.current && workout.current.sets && workout.current.sets.length) {
-    workout.current.name = String(workout.current.name || '').trim() || 'Unnamed exercise';
+  if (slotList().some(ex => ex.sets && ex.sets.length)) {
+    slotList().forEach(ex => { if (ex.sets.length) ex.name = String(ex.name || '').trim() || 'Unnamed exercise'; });
     commitCurrentIntoList(true);
   }
   delete workout.current;          // a record has no in-progress exercise
@@ -2627,8 +2877,9 @@ function lastPerf(name) {
   return null;
 }
 
-function renderAutocomplete(query) {
-  const box = document.getElementById('ac-list');
+function renderAutocomplete(query, k = 0) {
+  const box = sEl('ac-list', k);
+  if (!box) return;
   const q = query.trim().toLowerCase();
   const { recent, preset, all } = knownExerciseNames();
   let matches;
@@ -2645,14 +2896,14 @@ function renderAutocomplete(query) {
       : escapeHtml(n);
     const lp = lastPerf(n);
     const meta = lp ? fmtShortISO(lp.dateISO) + ' · ' + lp.top.weight + ' × ' + lp.top.reps : '';
-    return `<div class="ac-item" onclick="pickExercise(this.dataset.name)" data-name="${escapeAttr(n)}">
+    return `<div class="ac-item" onclick="pickExercise(this.dataset.name, ${k})" data-name="${escapeAttr(n)}">
       ${CLOCK}<span class="nm">${label}</span>${meta ? `<span class="meta">${escapeHtml(meta)}</span>` : ''}
     </div>`;
   }).join('');
 
   const exact = all.some(n => n.toLowerCase() === q);
   if (q && !exact) {
-    html += `<div class="ac-item add" onclick="pickExercise(this.dataset.name)" data-name="${escapeAttr(query.trim())}">
+    html += `<div class="ac-item add" onclick="pickExercise(this.dataset.name, ${k})" data-name="${escapeAttr(query.trim())}">
       <span class="plus">+</span><span class="nm">Add “${escapeHtml(query.trim())}” as new exercise</span>
     </div>`;
   }
@@ -2662,26 +2913,41 @@ function renderAutocomplete(query) {
   box.classList.add('open');
 }
 
-function pickExercise(name) {
-  // machine exercises no longer use the brand picker modal — brands are selected via chip button
-  finishPickExercise(name);
+function pickExercise(name, k = 0) {
+  finishPickExercise(name, k);
 }
-function finishPickExercise(name) {
-  const input = document.getElementById('ex-name');
-  input.value = name;
-  fitExName();
-  document.getElementById('ex-clear').classList.add('show');
-  document.getElementById('ac-list').classList.remove('open');
-  // when picking a new exercise name, treat it as a fresh start: clear any in-progress sets from the previous exercise
-  if (workout.current.name !== name) {
-    workout.current.sets = [];
-    document.getElementById('in-reps').value = '';
-    document.getElementById('in-weight').value = '';
+// Put a picked exercise into slot k. A different exercise must not inherit the sets
+// already logged there — but they're never dropped silently: ask first. The check is
+// against ex.name, the name the sets were logged under (typing doesn't change it),
+// so re-picking the same exercise after editing its name keeps the sets.
+function finishPickExercise(name, k = 0) {
+  const ex = slotEx(k);
+  const apply = fresh => {
+    const input = sEl('ex-name', k);
+    input.value = name;
+    fitExName(k);
+    sEl('ex-clear', k).classList.add('show');
+    sEl('ac-list', k).classList.remove('open');
+    if (fresh) {
+      ex.sets = [];
+      ex.pending = newPending();
+      sEl('in-reps', k).value = '';
+      sEl('in-weight', k).value = '';
+    }
+    ex.name = name;
+    store.active = workout;
+    renderSetRows();
+    sEl('in-reps', k).focus();
+  };
+  const was = String(ex.name || '').trim();
+  if (ex.sets.length && was && was.toLowerCase() !== name.toLowerCase()) {
+    sEl('ac-list', k).classList.remove('open');
+    const n = ex.sets.length;
+    uiConfirm(`Start “${name}” here? The ${n} ${n === 1 ? 'set' : 'sets'} logged for “${was}” will be cleared. Tap Cancel, then Next exercise, to keep them.`,
+      'Start fresh', () => apply(true));
+    return;
   }
-  workout.current.name = name;
-  store.active = workout;
-  renderSetRows();
-  document.getElementById('in-reps').focus();
+  apply(false);
 }
 
 /* ---------- machine brand picker ---------- */
@@ -2689,14 +2955,14 @@ function isMachineExercise(name) {
   const n = name.toLowerCase();
   return /machine/.test(n) || MACHINE_NATURE.some(m => n.includes(m.toLowerCase()));
 }
-function clearExName() {
-  const input = document.getElementById('ex-name');
+// clears only the field: ex.name keeps the name the sets were logged under until a new
+// one is picked or logged, so clearing and re-picking the same exercise keeps its sets
+function clearExName(k = 0) {
+  const input = sEl('ex-name', k);
   input.value = '';
-  fitExName();
-  workout.current.name = '';
-  store.active = workout;
-  document.getElementById('ex-clear').classList.remove('show');
-  renderAutocomplete('');
+  fitExName(k);
+  sEl('ex-clear', k).classList.remove('show');
+  renderAutocomplete('', k);
   input.focus();
 }
 
@@ -2726,7 +2992,9 @@ function setChipHtml(s) {
 }
 
 function openPerf() {
-  const name = document.getElementById('ex-name').value.trim() || (workout.current && workout.current.name);
+  const k = slotEx(focusSlot) ? focusSlot : 0;
+  const field = sEl('ex-name', k);
+  const name = (field && field.value.trim()) || (slotEx(k) && slotEx(k).name);
   if (!name) { toast('Name the exercise first'); return; }
   document.getElementById('perf-title').textContent = name;
 
@@ -2799,7 +3067,8 @@ function renderSummary() {
     <div class="stat"><div class="num">${w.exercises.length}</div><div class="lbl">EXERCISES</div></div>`;
 
   // fully editable: tap the name to rename, tap any set value to edit it
-  document.getElementById('summary-cards').innerHTML = w.exercises.map((ex, e) => {
+  const exCard = e => {
+    const ex = w.exercises[e];
     const header = editingExIdx === e
       ? `<div class="hd"><div style="flex:1;min-width:0;position:relative;">
            <div style="display:flex;gap:8px;align-items:center;">
@@ -2820,10 +3089,27 @@ function renderSummary() {
       <button class="add-set-btn" onclick="addSetToExercise(${e})">+ Add set</button>
       ${ex.notes ? `<div class="hist-note">“${escapeHtml(ex.notes)}”</div>` : ''}
     </div>`;
+  };
+  document.getElementById('summary-cards').innerHTML = supersetRuns(w.exercises).map(r => {
+    const cards = r.idx.map(exCard).join('');
+    return r.id ? `<div class="ss-group">
+        <div class="ss-group-head"><span class="t">SUPERSET</span>
+          <button class="ss-unlink" onclick="unlinkSuperset(${r.idx[0]})">Unlink</button></div>
+        ${cards}
+      </div>` : cards;
   }).join('');
 
   const cmt = document.getElementById('workout-comment');
   if (cmt && document.activeElement !== cmt) cmt.value = w.comment || '';
+}
+// split a superset back into separate exercises — every set is kept
+function unlinkSuperset(e) {
+  const id = workout && workout.exercises[e] && workout.exercises[e].superset;
+  if (!id) return;
+  workout.exercises.forEach(ex => { if (ex.superset === id) delete ex.superset; });
+  persistDraft();
+  renderSummary();
+  toast('Superset unlinked — sets kept');
 }
 function setWorkoutComment(v) {
   if (!workout) return;
@@ -2920,8 +3206,9 @@ function formatWorkoutText(w) {
   let out = 'Workout — ' + fmtLong(w.dateISO) + (w.duration ? ' (' + w.duration + ')' : '') + '\n';
   if (workoutMetaStr(w)) out += workoutMetaStr(w) + '\n';
   out += '\n';
-  w.exercises.forEach(ex => {
-    out += ex.name + '\n';
+  const ssNo = supersetNumbers(w.exercises);
+  w.exercises.forEach((ex, e) => {
+    out += ex.name + (ssNo[e] ? '  (superset ' + ssNo[e] + ')' : '') + '\n';
     ex.sets.forEach((s, i) => {
       const tags = tagsString(s);
       out += '  Set ' + (i + 1) + ': ' + s.weight + u + ' × ' + s.reps + (tags ? '  [' + tags + ']' : '') + '\n';
@@ -2962,12 +3249,15 @@ function renderHistory() {
       </div>
       <div class="hd" style="margin-top:2px;"><div class="m">${w.exercises.length} exercise${w.exercises.length !== 1 ? 's' : ''} · ${sets} sets${w.duration ? ' · ' + w.duration : ''}</div></div>
       ${workoutMetaStr(w) ? `<div class="m" style="margin-top:3px;color:${LIGHT_TYPES.includes(w.type) ? 'var(--amber)' : 'var(--pink)'};">${escapeHtml(workoutMetaStr(w))}</div>` : ''}
-      ${w.exercises.map(ex => `
-        <div class="hist-ex">
-          <div class="exn">${escapeHtml(ex.name)}</div>
-          <div class="hist-chips">${ex.sets.map(setChipHtml).join('')}</div>
-          ${ex.notes ? `<div class="hist-note">“${escapeHtml(ex.notes)}”</div>` : ''}
-        </div>`).join('')}
+      ${supersetRuns(w.exercises).map(r => {
+        const exs = r.idx.map(i => w.exercises[i]).map(ex => `
+          <div class="hist-ex">
+            <div class="exn">${escapeHtml(ex.name)}</div>
+            <div class="hist-chips">${ex.sets.map(setChipHtml).join('')}</div>
+            ${ex.notes ? `<div class="hist-note">“${escapeHtml(ex.notes)}”</div>` : ''}
+          </div>`).join('');
+        return r.id ? `<div class="hist-ss"><div class="ss-label">SUPERSET</div>${exs}</div>` : exs;
+      }).join('')}
       ${w.comment && w.comment.trim() ? `<div class="hist-comment">💬 ${escapeHtml(w.comment.trim())}</div>` : ''}
     </div>`;
   }).join('');
@@ -3475,13 +3765,14 @@ function downloadFile(name, mime, content) {
 function csvCell(v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 function exportCSV() {
   const u = unit();
-  const rows = [['Date', 'Workout Type', 'Body Parts', 'Exercise', 'Set', 'Weight (' + u + ')', 'Reps', 'Tags', 'Notes', 'Volume', 'Workout Comment']];
+  const rows = [['Date', 'Workout Type', 'Body Parts', 'Exercise', 'Set', 'Weight (' + u + ')', 'Reps', 'Tags', 'Notes', 'Volume', 'Workout Comment', 'Superset']];
   store.history.slice().reverse().forEach(w => {
     const bp = (w.bodyParts || []).join(', ');
     let firstRow = true;
-    w.exercises.forEach(ex => ex.sets.forEach((s, i) => {
+    const ssNo = supersetNumbers(w.exercises);
+    w.exercises.forEach((ex, e) => ex.sets.forEach((s, i) => {
       const vol = (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
-      rows.push([fmtLong(w.dateISO), w.type || '', bp, ex.name, i + 1, s.weight, s.reps, tagsString(s), i === 0 ? (ex.notes || '') : '', vol, firstRow ? (w.comment || '') : '']);
+      rows.push([fmtLong(w.dateISO), w.type || '', bp, ex.name, i + 1, s.weight, s.reps, tagsString(s), i === 0 ? (ex.notes || '') : '', vol, firstRow ? (w.comment || '') : '', ssNo[e] || '']);
       firstRow = false;
     }));
   });
@@ -3496,8 +3787,9 @@ function exportDoc() {
   store.history.slice().reverse().forEach(w => {
     body += '<h2>Workout — ' + escapeHtml(fmtLong(w.dateISO)) + (w.duration ? ' (' + escapeHtml(w.duration) + ')' : '') + '</h2>';
     if (workoutMetaStr(w)) body += '<p style="margin:0 0 6px;color:#F72585;font-weight:bold;">' + escapeHtml(workoutMetaStr(w)) + '</p>';
-    w.exercises.forEach(ex => {
-      body += '<h3>' + escapeHtml(ex.name) + '</h3><ul>';
+    const ssNo = supersetNumbers(w.exercises);
+    w.exercises.forEach((ex, e) => {
+      body += '<h3>' + escapeHtml(ex.name) + (ssNo[e] ? ' <small style="color:#F72585;">(superset ' + ssNo[e] + ')</small>' : '') + '</h3><ul>';
       ex.sets.forEach((s, i) => {
         const tags = tagsString(s);
         body += '<li>Set ' + (i + 1) + ': ' + escapeHtml(String(s.weight)) + u + ' &times; ' + escapeHtml(String(s.reps)) + (tags ? '  [' + escapeHtml(tags) + ']' : '') + '</li>';
@@ -3544,44 +3836,53 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   if (cb) cb();
 });
 
-// grow the name box to fit the text, so long names wrap instead of being cut off
-function fitExName() {
-  const el = document.getElementById('ex-name');
+// grow a name box to fit its text, so long names wrap instead of being cut off
+function fitNameBox(el) {
   el.style.height = 'auto';
-  if (!el.offsetWidth) return;   // hidden screen: nothing to measure, keep the one-row height
-  el.style.height = el.scrollHeight + 'px';
+  if (el.offsetWidth) el.style.height = el.scrollHeight + 'px';   // hidden screen: keep the one-row height
 }
-window.addEventListener('resize', fitExName);
-if (document.fonts) document.fonts.ready.then(fitExName);
-const exNameInput = document.getElementById('ex-name');
-exNameInput.addEventListener('input', e => {
+function fitExName(k) {
+  if (typeof k === 'number') { const el = sEl('ex-name', k); if (el) fitNameBox(el); return; }
+  document.querySelectorAll('#ex-card .ex-name-field textarea').forEach(fitNameBox);
+}
+window.addEventListener('resize', () => fitExName());
+if (document.fonts) document.fonts.ready.then(() => fitExName());
+// name-field handlers, shared by every exercise slot on the card (k = slot)
+function onExNameInput(k) {
+  const el = sEl('ex-name', k);
   // it's a textarea only so it can wrap — a pasted line break is still just a space
-  if (/\n/.test(e.target.value)) e.target.value = e.target.value.replace(/\s*\n+\s*/g, ' ');
-  fitExName();
-  renderAutocomplete(e.target.value);
-  document.getElementById('ex-clear').classList.toggle('show', !!e.target.value);
-  if (workout && workout.current) { workout.current.name = e.target.value; }
-});
-exNameInput.addEventListener('focus', e => renderAutocomplete(e.target.value));
-exNameInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    const first = document.querySelector('#ac-list .ac-item');
-    if (first && document.getElementById('ac-list').classList.contains('open')) pickExercise(first.dataset.name);
-    else if (e.target.value.trim()) pickExercise(e.target.value.trim());
-    else { document.getElementById('ac-list').classList.remove('open'); document.getElementById('in-reps').focus(); }
-    e.preventDefault();
-  }
-});
+  if (/\n/.test(el.value)) el.value = el.value.replace(/\s*\n+\s*/g, ' ');
+  fitExName(k);
+  renderAutocomplete(el.value, k);
+  sEl('ex-clear', k).classList.toggle('show', !!el.value);
+}
+function onExNameKey(e, k) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const box = sEl('ac-list', k);
+  const first = box.querySelector('.ac-item');
+  const v = e.target.value.trim();
+  if (first && box.classList.contains('open')) pickExercise(first.dataset.name, k);
+  else if (v) pickExercise(v, k);
+  else { box.classList.remove('open'); sEl('in-reps', k).focus(); }
+}
+function onNotesInput(k, v) {
+  const ex = workout && workout.current && slotEx(k);
+  if (ex) { ex.notes = v; store.active = workout; }
+}
 document.addEventListener('click', e => {
-  if (!e.target.closest('.ex-name-wrap')) document.getElementById('ac-list').classList.remove('open');
+  document.querySelectorAll('#ex-card .ac-list.open').forEach(box => {
+    if (!box.parentElement.contains(e.target)) box.classList.remove('open');
+  });
   if (!e.target.closest('.chip-menu')) closeChipMenu();
   if (!e.target.closest('#bp-panel') && !e.target.closest('#bp-box')) closeBodyParts();
   const es = document.getElementById('exname-sugg');
   if (es && !e.target.closest('#exname-sugg') && e.target.id !== 'edit-exname') es.classList.remove('open');
 });
-document.getElementById('in-weight').addEventListener('keydown', e => { if (e.key === 'Enter') logSet(); });
-document.getElementById('ex-notes').addEventListener('input', e => {
-  if (workout && workout.current) { workout.current.notes = e.target.value; store.active = workout; }
+// remember which exercise of a superset you last touched, so Recent performance shows that one
+document.getElementById('ex-card').addEventListener('focusin', e => {
+  const block = e.target.closest('[data-slot]');
+  focusSlot = block ? +block.dataset.slot : 0;
 });
 
 applyCfgFromHash();
